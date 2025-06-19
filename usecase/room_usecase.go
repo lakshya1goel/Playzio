@@ -2,7 +2,7 @@ package usecase
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/lakshya1goel/Playzio/bootstrap"
+	"github.com/lakshya1goel/Playzio/bootstrap/util"
 	"github.com/lakshya1goel/Playzio/domain"
 	"github.com/lakshya1goel/Playzio/domain/dto"
 	"github.com/lakshya1goel/Playzio/domain/model"
@@ -26,7 +26,7 @@ func NewRoomUsecase() RoomUsecase {
 }
 
 func (ru *roomUsecase) CreateRoom(c *gin.Context, room model.Room) (*dto.CreateRoomResponse, *domain.HttpError) {
-	joinCode, err := bootstrap.GenerateRandomCode(6)
+	joinCode, err := util.GenerateRandomCode(6)
 	if err != nil {
 		return nil, &domain.HttpError{
 			StatusCode: 500,
