@@ -7,7 +7,7 @@ type Room struct {
 	Name      string `json:"name"`
 	Type      string `json:"type"`
 	CreatedBy uint   `json:"created_by"`
-	Creator   *User   `gorm:"foreignKey:CreatedBy"`
-	JoinCode  string `json:"join_code,omitempty"`
+	Creator   *User  `gorm:"foreignKey:CreatedBy"`
+	JoinCode  string `json:"join_code"`
 	Members   []User `gorm:"foreignKey:RoomID"`
 }
