@@ -13,9 +13,9 @@ type AuthController struct {
 	authUseCase usecase.AuthUseCase
 }
 
-func NewAuthController(authUC usecase.AuthUseCase) *AuthController {
+func NewAuthController() *AuthController {
 	return &AuthController{
-		authUseCase: authUC,
+		authUseCase: usecase.NewAuthUseCase(),
 	}
 }
 

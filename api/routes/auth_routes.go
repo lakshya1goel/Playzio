@@ -8,7 +8,7 @@ import (
 func AuthRoutes(router *gin.RouterGroup, authController *controller.AuthController) {
 	authRouter := router.Group("/auth")
 	{
-		authRouter.GET("/", authController.BeginAuth)
+		authRouter.GET("/google", authController.BeginAuth)
 		authRouter.GET("/callback", authController.Callback)
 	}
 }
