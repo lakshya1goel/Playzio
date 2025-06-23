@@ -8,6 +8,8 @@ import (
 
 type UserRepository interface {
 	GetUserByID(c *gin.Context, id uint) (model.User, error)
+	GetUserByEmail(c *gin.Context, email string) (model.User, error)
+	CreateUser(c *gin.Context, user *model.User) error
 }
 
 type userRepository struct{}
@@ -22,4 +24,19 @@ func (r *userRepository) GetUserByID(c *gin.Context, id uint) (model.User, error
 		return model.User{}, err
 	}
 	return user, nil
+}
+
+func (r *userRepository) GetUserByEmail(c *gin.Context, email string) (model.User, error) {
+	var user model.User
+	if err := database.Db.Where("email = ?", email).First(&user).Error; err != nil {
+		return model.User{}, err
+	}
+	return user, nil
+}
+
+func (r *userRepository) CreateUser(c *gin.Context, user *model.User) error {
+	if err := database.Db.Create(user).Error; err != nil {
+		return err
+	}
+	return nil
 }
