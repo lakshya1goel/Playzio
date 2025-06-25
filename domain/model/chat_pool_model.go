@@ -2,22 +2,24 @@ package model
 
 import (
 	"sync"
+
+	"github.com/lakshya1goel/Playzio/bootstrap/util"
 )
 
 type ChatPool struct {
 	Register   chan *ChatClient
 	Unregister chan *ChatClient
-	Rooms     map[uint]map[uint]*ChatClient
-	Broadcast  chan Message
+	Rooms      map[uint]map[uint]*ChatClient
+	Broadcast  chan ChatMessage
 	mu         sync.RWMutex
 }
 
-func NewPool() *ChatPool {
+func NewChatPool() *ChatPool {
 	return &ChatPool{
 		Register:   make(chan *ChatClient),
 		Unregister: make(chan *ChatClient),
-		Rooms:     make(map[uint]map[uint]*ChatClient),
-		Broadcast:  make(chan Message),
+		Rooms:      make(map[uint]map[uint]*ChatClient),
+		Broadcast:  make(chan ChatMessage),
 	}
 }
 
@@ -25,32 +27,16 @@ func (p *ChatPool) Start() {
 	for {
 		select {
 		case client := <-p.Register:
-			p.mu.Lock()
-			if _, exists := p.Rooms[client.RoomID]; !exists {
-				p.Rooms[client.RoomID] = make(map[uint]*ChatClient)
-			}
-			p.Rooms[client.RoomID][client.UserId] = client
-			p.mu.Unlock()
+			util.RegisterClient(&p.mu, p.Rooms, client.RoomID, client.UserId, client)
 
 		case client := <-p.Unregister:
-			p.mu.Lock()
-			if clients, ok := p.Rooms[client.RoomID]; ok {
-				delete(clients, client.UserId)
-				if len(clients) == 0 {
-					delete(p.Rooms, client.RoomID)
-				}
-			}
-			p.mu.Unlock()
+			util.UnregisterClient(&p.mu, p.Rooms, client.RoomID, client.UserId)
 
 		case msg := <-p.Broadcast:
 			p.mu.RLock()
 			clients := p.Rooms[msg.RoomID]
 			for _, client := range clients {
-				go func(c *ChatClient) {
-					c.mu.Lock()
-					defer c.mu.Unlock()
-					c.Conn.WriteJSON(msg)
-				}(client)
+				go client.WriteJSON(msg)
 			}
 			p.mu.RUnlock()
 		}

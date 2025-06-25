@@ -4,7 +4,7 @@ import (
 	"gorm.io/gorm"
 )
 
-type Message struct {
+type ChatMessage struct {
 	gorm.Model
 	Type   string `json:"type"`
 	Body   string `json:"body"`
@@ -15,5 +15,5 @@ type Message struct {
 const (
 	JoinRoom    = "join-room"
 	LeaveRoom   = "leave-room"
-	ChatMessage = "message"
+	ChatContent = "chat-content"
 )

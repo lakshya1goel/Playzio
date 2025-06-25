@@ -2,6 +2,8 @@ package model
 
 import (
 	"sync"
+
+	"github.com/lakshya1goel/Playzio/bootstrap/util"
 )
 
 type GamePool struct {
@@ -27,14 +29,10 @@ func (p *GamePool) Start() {
 	for {
 		select {
 		case client := <-p.Register:
+			util.RegisterClient(&p.mu, p.Clients, client.RoomID, client.UserId, client)
+
 			p.mu.Lock()
-
-			if _, exists := p.Clients[client.RoomID]; !exists {
-				p.Clients[client.RoomID] = make(map[uint]*GameClient)
-			}
-			p.Clients[client.RoomID][client.UserId] = client
-
-			if _, exists := p.Rooms[client.RoomID]; !exists {
+			if _, ok := p.Rooms[client.RoomID]; !ok {
 				p.Rooms[client.RoomID] = &GameRoomState{
 					RoomID:    client.RoomID,
 					Players:   []uint{client.UserId},
@@ -45,23 +43,19 @@ func (p *GamePool) Start() {
 				}
 			} else {
 				room := p.Rooms[client.RoomID]
-				if _, ok := room.Lives[client.UserId]; !ok {
+				if _, exists := room.Lives[client.UserId]; !exists {
 					room.Players = append(room.Players, client.UserId)
 					room.Lives[client.UserId] = 3
 					room.Points[client.UserId] = 0
 				}
 			}
-
 			p.mu.Unlock()
 
 		case client := <-p.Unregister:
+			util.UnregisterClient(&p.mu, p.Clients, client.RoomID, client.UserId)
 			p.mu.Lock()
-			if clients, ok := p.Clients[client.RoomID]; ok {
-				delete(clients, client.UserId)
-				if len(clients) == 0 {
-					delete(p.Clients, client.RoomID)
-					delete(p.Rooms, client.RoomID)
-				}
+			if len(p.Clients[client.RoomID]) == 0 {
+				delete(p.Rooms, client.RoomID)
 			}
 			p.mu.Unlock()
 
@@ -69,11 +63,7 @@ func (p *GamePool) Start() {
 			p.mu.RLock()
 			clients := p.Clients[msg.RoomID]
 			for _, client := range clients {
-				go func(c *GameClient) {
-					c.mu.Lock()
-					defer c.mu.Unlock()
-					c.Conn.WriteJSON(msg)
-				}(client)
+				go client.WriteJSON(msg)
 			}
 			p.mu.RUnlock()
 		}

@@ -9,7 +9,7 @@ import (
 type ChatWSUsecase interface {
 	JoinRoom(c *model.ChatClient, roomID uint)
 	LeaveRoom(c *model.ChatClient)
-	BroadcastMessage(c *model.ChatClient, msg model.Message)
+	BroadcastMessage(c *model.ChatClient, msg model.ChatMessage)
 	Read(c *model.ChatClient)
 }
 
@@ -28,7 +28,7 @@ func (u *chatWSUsecase) LeaveRoom(c *model.ChatClient) {
 	c.Pool.Unregister <- c
 }
 
-func (u *chatWSUsecase) BroadcastMessage(c *model.ChatClient, msg model.Message) {
+func (u *chatWSUsecase) BroadcastMessage(c *model.ChatClient, msg model.ChatMessage) {
 	msg.Sender = c.UserId
 	msg.RoomID = c.RoomID
 	c.Pool.Broadcast <- msg
@@ -41,7 +41,7 @@ func (u *chatWSUsecase) Read(c *model.ChatClient) {
 	}()
 
 	for {
-		var msg model.Message
+		var msg model.ChatMessage
 		err := c.Conn.ReadJSON(&msg)
 		if err != nil {
 			fmt.Println("Read error:", err)
@@ -59,7 +59,7 @@ func (u *chatWSUsecase) Read(c *model.ChatClient) {
 		case model.LeaveRoom:
 			u.LeaveRoom(c)
 
-		case model.ChatMessage:
+		case model.ChatContent:
 			if c.RoomID == 0 {
 				fmt.Println("Client has not joined any room")
 				continue
