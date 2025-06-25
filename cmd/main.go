@@ -10,6 +10,7 @@ import (
 	"github.com/lakshya1goel/Playzio/api/routes"
 	"github.com/lakshya1goel/Playzio/bootstrap"
 	"github.com/lakshya1goel/Playzio/bootstrap/database"
+	"github.com/lakshya1goel/Playzio/usecase"
 	"github.com/markbates/goth"
 	"github.com/markbates/goth/providers/google"
 )
@@ -20,7 +21,6 @@ func main() {
 		fmt.Println("Error loading .env file")
 	}
 
-	fmt.Println("hi " + os.Getenv("GOOGLE_CLIENT_ID"))
 	goth.UseProviders(
 		google.New(
 			os.Getenv("GOOGLE_CLIENT_ID"),
@@ -39,6 +39,8 @@ func main() {
 	apiRouter := router.Group("/api")
 	{
 		routes.AuthRoutes(apiRouter, controller.NewAuthController())
+		routes.WsRoutes(apiRouter, controller.NewWSController(app.Pool, usecase.NewWSUsecase()))
+		routes.RoomRoutes(apiRouter, controller.NewRoomController())
 	}
 
 	router.Run(":8000")
