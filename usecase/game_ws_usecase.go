@@ -57,9 +57,17 @@ func (u *gameWSUsecase) Read(c *model.GameClient) {
 			u.JoinRoom(c, msg.RoomID)
 
 		case model.Answer:
+			if c.RoomID == 0 {
+				fmt.Println("Client has not joined any room")
+				continue
+			}
 			u.BroadcastMessage(c, msg)
 
 		case model.Timeout:
+			if c.RoomID == 0 {
+				fmt.Println("Client has not joined any room")
+				continue
+			}
 			u.BroadcastMessage(c, msg)
 
 		case model.Leave:
