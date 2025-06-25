@@ -4,13 +4,13 @@ import "github.com/lakshya1goel/Playzio/domain/model"
 
 type Application struct {
 	Env *Env
-	Pool *model.Pool
+	ChatPool *model.ChatPool
 }
 
 func App() Application {
 	app := &Application{}
 	app.Env = NewEnv()
-	app.Pool = model.NewPool()
-	go app.Pool.Start()
+	app.ChatPool = model.NewPool()
+	go app.ChatPool.Start()
 	return *app
 }

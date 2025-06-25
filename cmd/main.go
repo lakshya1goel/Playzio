@@ -39,7 +39,7 @@ func main() {
 	apiRouter := router.Group("/api")
 	{
 		routes.AuthRoutes(apiRouter, controller.NewAuthController())
-		routes.WsRoutes(apiRouter, controller.NewWSController(app.Pool, usecase.NewWSUsecase()))
+		routes.ChatWsRoutes(apiRouter, controller.NewChatWSController(app.ChatPool, usecase.NewChatWSUsecase()))
 		routes.RoomRoutes(apiRouter, controller.NewRoomController())
 	}
 
