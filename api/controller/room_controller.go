@@ -44,6 +44,7 @@ func (rc *RoomController) CreateRoom(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, domain.SuccessResponse{
+		Success: true,
 		Message: "Room created successfully!",
 		Data:    response,
 	})
