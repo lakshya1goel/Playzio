@@ -6,37 +6,37 @@ import (
 	"github.com/lakshya1goel/Playzio/domain/model"
 )
 
-type WSUsecase interface {
-	JoinGroup(c *model.Client, groupID uint)
-	LeaveGroup(c *model.Client)
-	BroadcastMessage(c *model.Client, msg model.Message)
-	Read(c *model.Client)
+type ChatWSUsecase interface {
+	JoinRoom(c *model.ChatClient, roomID uint)
+	LeaveRoom(c *model.ChatClient)
+	BroadcastMessage(c *model.ChatClient, msg model.Message)
+	Read(c *model.ChatClient)
 }
 
-type wsUsecase struct{}
+type chatWSUsecase struct{}
 
-func NewWSUsecase() WSUsecase {
-	return &wsUsecase{}
+func NewChatWSUsecase() ChatWSUsecase {
+	return &chatWSUsecase{}
 }
 
-func (u *wsUsecase) JoinGroup(c *model.Client, roomID uint) {
+func (u *chatWSUsecase) JoinRoom(c *model.ChatClient, roomID uint) {
 	c.RoomID = roomID
 	c.Pool.Register <- c
 }
 
-func (u *wsUsecase) LeaveGroup(c *model.Client) {
+func (u *chatWSUsecase) LeaveRoom(c *model.ChatClient) {
 	c.Pool.Unregister <- c
 }
 
-func (u *wsUsecase) BroadcastMessage(c *model.Client, msg model.Message) {
+func (u *chatWSUsecase) BroadcastMessage(c *model.ChatClient, msg model.Message) {
 	msg.Sender = c.UserId
 	msg.RoomID = c.RoomID
 	c.Pool.Broadcast <- msg
 }
 
-func (u *wsUsecase) Read(c *model.Client) {
+func (u *chatWSUsecase) Read(c *model.ChatClient) {
 	defer func() {
-		u.LeaveGroup(c)
+		u.LeaveRoom(c)
 		c.Conn.Close()
 	}()
 
@@ -49,15 +49,15 @@ func (u *wsUsecase) Read(c *model.Client) {
 		}
 
 		switch msg.Type {
-		case model.JoinGroup:
+		case model.JoinRoom:
 			if msg.RoomID == 0 {
 				fmt.Println("Error: Invalid Room ID received.")
 				continue
 			}
-			u.JoinGroup(c, msg.RoomID)
+			u.JoinRoom(c, msg.RoomID)
 
-		case model.LeaveGroup:
-			u.LeaveGroup(c)
+		case model.LeaveRoom:
+			u.LeaveRoom(c)
 
 		case model.ChatMessage:
 			if c.RoomID == 0 {

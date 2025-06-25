@@ -6,9 +6,9 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-type Client struct {
+type ChatClient struct {
 	Conn   *websocket.Conn
-	Pool   *Pool
+	Pool   *ChatPool
 	UserId uint
 	RoomID uint
 	mu     sync.Mutex

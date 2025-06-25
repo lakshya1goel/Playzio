@@ -37,8 +37,14 @@ func (ru *roomUsecase) CreateRoom(c *gin.Context, room model.Room) (*dto.CreateR
 	}
 	room.JoinCode = joinCode
 
-	userID := uint(1)
-	room.CreatedBy = userID
+	userID, exists := c.Get("user_id")
+	if !exists {
+		return nil, &domain.HttpError{
+			StatusCode: 401,
+			Message:    "User not authenticated",
+		}
+	}
+	room.CreatedBy = userID.(uint)
 
 	room.Members = []model.User{}
 	user, err := ru.userRepo.GetUserByID(c, room.CreatedBy)
