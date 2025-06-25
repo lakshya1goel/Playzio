@@ -15,3 +15,7 @@ type CreateRoomResponse struct {
 	JoinCode  string       `json:"join_code,omitempty"`
 	Members   []model.User `json:"members,omitempty"`
 }
+
+type JoinRoomRequest struct {
+	JoinCode string `json:"join_code" binding:"required"`
+}

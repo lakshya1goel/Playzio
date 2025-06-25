@@ -10,6 +10,7 @@ type UserRepository interface {
 	GetUserByID(c *gin.Context, id uint) (model.User, error)
 	GetUserByEmail(c *gin.Context, email string) (model.User, error)
 	CreateUser(c *gin.Context, user *model.User) error
+	UpdateUser(c *gin.Context, user *model.User) error
 }
 
 type userRepository struct{}
@@ -36,6 +37,13 @@ func (r *userRepository) GetUserByEmail(c *gin.Context, email string) (model.Use
 
 func (r *userRepository) CreateUser(c *gin.Context, user *model.User) error {
 	if err := database.Db.Create(user).Error; err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *userRepository) UpdateUser(c *gin.Context, user *model.User) error {
+	if err := database.Db.Save(user).Error; err != nil {
 		return err
 	}
 	return nil
