@@ -40,6 +40,7 @@ func main() {
 	{
 		routes.AuthRoutes(apiRouter, controller.NewAuthController())
 		routes.WsRoutes(apiRouter, controller.NewChatWSController(app.ChatPool, usecase.NewChatWSUsecase()), controller.NewGameWSController(app.GamePool, usecase.NewGameWSUsecase()))
+		routes.RoomRoutes(apiRouter, controller.NewRoomController())
 	}
 
 	router.Run(":8000")

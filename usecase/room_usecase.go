@@ -13,6 +13,7 @@ import (
 
 type RoomUsecase interface {
 	CreateRoom(c *gin.Context, room model.Room) (*dto.CreateRoomResponse, *domain.HttpError)
+	JoinRoom(c *gin.Context, joinCode string) *domain.HttpError
 }
 
 type roomUsecase struct {
@@ -40,7 +41,7 @@ func (ru *roomUsecase) CreateRoom(c *gin.Context, room model.Room) (*dto.CreateR
 	userID, exists := c.Get("user_id")
 	if !exists {
 		return nil, &domain.HttpError{
-			StatusCode: 401,
+			StatusCode: http.StatusUnauthorized,
 			Message:    "User not authenticated",
 		}
 	}
@@ -49,6 +50,12 @@ func (ru *roomUsecase) CreateRoom(c *gin.Context, room model.Room) (*dto.CreateR
 	room.Members = []model.User{}
 	user, err := ru.userRepo.GetUserByID(c, room.CreatedBy)
 	if err != nil {
+		if err.Error() == "record not found" {
+			return nil, &domain.HttpError{
+				StatusCode: http.StatusNotFound,
+				Message:    "Creator not found",
+			}
+		}
 		return nil, &domain.HttpError{
 			StatusCode: http.StatusInternalServerError,
 			Message:    "Failed to retrieve creator information",
@@ -64,6 +71,15 @@ func (ru *roomUsecase) CreateRoom(c *gin.Context, room model.Room) (*dto.CreateR
 		}
 	}
 
+	user.RoomID = &room.ID
+	err = ru.userRepo.UpdateUser(c, &user)
+	if err != nil {
+		return nil, &domain.HttpError{
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to update user",
+		}
+	}
+
 	response := &dto.CreateRoomResponse{
 		ID:        resp.ID,
 		Name:      resp.Name,
@@ -74,4 +90,62 @@ func (ru *roomUsecase) CreateRoom(c *gin.Context, room model.Room) (*dto.CreateR
 	}
 
 	return response, nil
+}
+
+func (ru *roomUsecase) JoinRoom(c *gin.Context, joinCode string) *domain.HttpError {
+	room, err := ru.roomRepo.GetRoomByJoinCode(c, joinCode)
+	if err != nil {
+		if err.Error() == "record not found" {
+			return &domain.HttpError{
+				StatusCode: http.StatusNotFound,
+				Message:    "Room with the provided join code does not exist",
+			}
+		}
+		return &domain.HttpError{
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to retrieve room",
+		}
+	}
+
+	userID, exists := c.Get("user_id")
+	if !exists {
+		return &domain.HttpError{
+			StatusCode: http.StatusUnauthorized,
+			Message:    "User not authenticated",
+		}
+	}
+
+	user, err := ru.userRepo.GetUserByID(c, userID.(uint))
+	if err != nil {
+		if err.Error() == "record not found" {
+			return &domain.HttpError{
+				StatusCode: http.StatusNotFound,
+				Message:    "User not found",
+			}
+		}
+		return &domain.HttpError{
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to retrieve user",
+		}
+	}
+
+	room.Members = append(room.Members, user)
+	err = ru.roomRepo.UpdateRoom(c, room)
+	if err != nil {
+		return &domain.HttpError{
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to update room",
+		}
+	}
+
+	user.RoomID = &room.ID
+	err = ru.userRepo.UpdateUser(c, &user)
+	if err != nil {
+		return &domain.HttpError{
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to update user",
+		}
+	}
+
+	return nil
 }
