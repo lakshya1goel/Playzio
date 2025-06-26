@@ -12,7 +12,7 @@ func InitDB() error {
 		return fmt.Errorf("database connection not established. Call ConnectDb first")
 	}
 
-	err := Db.AutoMigrate(&model.User{}, &model.Room{})
+	err := Db.AutoMigrate(&model.User{}, &model.Room{}, &model.RoomMember{})
 	if err != nil {
 		return fmt.Errorf("error creating expenses table: %v", err)
 	}

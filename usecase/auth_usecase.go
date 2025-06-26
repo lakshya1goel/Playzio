@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/lakshya1goel/Playzio/bootstrap/util"
 	"github.com/lakshya1goel/Playzio/domain"
 	"github.com/lakshya1goel/Playzio/domain/dto"
@@ -74,8 +75,9 @@ func (uc *authUseCase) Authenticate(c *gin.Context, user model.User) (*dto.AuthR
 }
 
 func (uc *authUseCase) AuthenticateGuest(c *gin.Context, name string) (*dto.GuestAuthResponse, *domain.HttpError) {
+	guestID := uuid.NewString()
 	exp := time.Now().Add(24 * time.Hour).Unix()
-	token, err := util.GenerateGuestToken(name, exp)
+	token, err := util.GenerateGuestToken(name, guestID, exp)
 	if err != nil {
 		return nil, &domain.HttpError{
 			StatusCode: http.StatusInternalServerError,

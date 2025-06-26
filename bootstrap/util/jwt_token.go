@@ -18,9 +18,10 @@ func GenerateToken(userID uint, exp int64) (string, error) {
 	return token.SignedString(secretKey)
 }
 
-func GenerateGuestToken(name string, exp int64) (string, error) {
+func GenerateGuestToken(name string, guestID string, exp int64) (string, error) {
 	claims := jwt.MapClaims{}
 	claims["type"] = "guest"
+	claims["guest_id"] = guestID
 	claims["name"] = name
 	claims["exp"] = exp
 
