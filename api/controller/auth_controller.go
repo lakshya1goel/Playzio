@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lakshya1goel/Playzio/domain"
 	"github.com/lakshya1goel/Playzio/domain/model"
 	"github.com/lakshya1goel/Playzio/usecase"
 	"github.com/markbates/goth/gothic"
@@ -57,11 +58,41 @@ func (ctrl *AuthController) Callback(c *gin.Context) {
 		ProfilePic: &gothUser.AvatarURL,
 	}
 
-	finalUser, err := ctrl.authUseCase.Authenticate(c, appUser)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Auth failed"})
+	response, httpErr := ctrl.authUseCase.Authenticate(c, *appUser)
+	if httpErr != nil {
+		c.JSON(httpErr.StatusCode, domain.ErrorResponse{
+			Message: httpErr.Message,
+		})
 		return
 	}
 
-	c.JSON(http.StatusOK, finalUser)
+	c.JSON(http.StatusOK, domain.SuccessResponse{
+		Success: true,
+		Message: "User authenticated successfully",
+		Data:    response,
+	})
+}
+
+func (ctrl *AuthController) GuestAuth(c *gin.Context) {
+	name := c.Query("name")
+	if name == "" {
+		c.JSON(http.StatusBadRequest, domain.ErrorResponse{
+			Message: "Name is required",
+		})
+		return
+	}
+
+	response, httpErr := ctrl.authUseCase.AuthenticateGuest(c, name)
+	if httpErr != nil {
+		c.JSON(httpErr.StatusCode, domain.ErrorResponse{
+			Message: httpErr.Message,
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, domain.SuccessResponse{
+		Success: true,
+		Message: "Guest authenticated successfully",
+		Data:    response,
+	})
 }
