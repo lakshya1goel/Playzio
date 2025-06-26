@@ -33,7 +33,20 @@ func AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		c.Set("user_id", claims["user_id"])
+		if claims["type"] == "guest" {
+			c.Set("user_type", "guest")
+			c.Set("guest_name", claims["name"])
+			c.Set("guest_id", claims["guest_id"].(string))
+		} else {
+			if userID, ok := claims["user_id"].(float64); ok {
+				c.Set("user_type", "google")
+				c.Set("user_id", uint(userID))
+			} else {
+				c.JSON(http.StatusUnauthorized, gin.H{"message": "Invalid token (missing user_id)"})
+				c.Abort()
+				return
+			}
+		}
 		c.Next()
 	}
 }

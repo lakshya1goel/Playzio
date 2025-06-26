@@ -11,6 +11,9 @@ type RoomRepository interface {
 	GetRoomByID(c *gin.Context, id uint) (model.Room, error)
 	GetRoomByJoinCode(c *gin.Context, joinCode string) (model.Room, error)
 	UpdateRoom(c *gin.Context, room model.Room) error
+	AddRoomMember(c *gin.Context, member *model.RoomMember) error
+	IsUserInRoom(c *gin.Context, roomID uint, userID uint) (bool, error)
+	IsGuestInRoom(c *gin.Context, roomID uint, guestID string) (bool, error)
 }
 
 type roomRepository struct{}
@@ -47,4 +50,33 @@ func (r *roomRepository) UpdateRoom(c *gin.Context, room model.Room) error {
 		return err
 	}
 	return nil
+}
+
+func (r *roomRepository) AddRoomMember(c *gin.Context, member *model.RoomMember) error {
+	if err := database.Db.Create(member).Error; err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *roomRepository) IsUserInRoom(c *gin.Context, roomID uint, userID uint) (bool, error) {
+	var count int64
+	err := database.Db.Model(&model.RoomMember{}).
+		Where("room_id = ? AND user_id = ?", roomID, userID).
+		Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+func (r *roomRepository) IsGuestInRoom(c *gin.Context, roomID uint, guestID string) (bool, error) {
+	var count int64
+	err := database.Db.Model(&model.RoomMember{}).
+		Where("room_id = ? AND guest_id = ?", roomID, guestID).
+		Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }
