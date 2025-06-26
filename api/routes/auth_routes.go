@@ -10,5 +10,6 @@ func AuthRoutes(router *gin.RouterGroup, authController *controller.AuthControll
 	{
 		authRouter.GET("/google", authController.BeginAuth)
 		authRouter.GET("/callback", authController.Callback)
+		authRouter.GET("/guest", authController.GuestAuth)
 	}
 }

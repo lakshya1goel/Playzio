@@ -10,7 +10,19 @@ var secretKey = []byte("secretKey")
 
 func GenerateToken(userID uint, exp int64) (string, error) {
 	claims := jwt.MapClaims{}
+	claims["type"] = "authenticated"
 	claims["user_id"] = userID
+	claims["exp"] = exp
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString(secretKey)
+}
+
+func GenerateGuestToken(name string, guestID string, exp int64) (string, error) {
+	claims := jwt.MapClaims{}
+	claims["type"] = "guest"
+	claims["guest_id"] = guestID
+	claims["name"] = name
 	claims["exp"] = exp
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

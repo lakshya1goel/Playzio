@@ -49,3 +49,26 @@ func (rc *RoomController) CreateRoom(c *gin.Context) {
 		Data:    response,
 	})
 }
+
+func (rc *RoomController) JoinRoom(c *gin.Context) {
+	var request dto.JoinRoomRequest
+
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, domain.ErrorResponse{
+			Message: "Invalid request data",
+		})
+	}
+
+	err := rc.roomUsecase.JoinRoom(c, request.JoinCode)
+
+	if err != nil {
+		c.JSON(err.StatusCode, domain.ErrorResponse{
+			Message: err.Message,
+		})
+	}
+
+	c.JSON(http.StatusOK, domain.SuccessResponse{
+		Success: true,
+		Message: "Room joined successfully!",
+	})
+}
