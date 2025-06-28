@@ -37,6 +37,10 @@ func (p *ChatPool) Start() {
 	for {
 		select {
 		case client := <-p.Register:
+			if len(p.Rooms[client.RoomID]) >= 10 {
+				p.mu.Unlock()
+				continue
+			}
 			util.RegisterClient(&p.mu, p.Rooms, client.RoomID, client.UserId, client)
 
 		case client := <-p.Unregister:
@@ -78,14 +82,17 @@ func (p *GamePool) Start() {
 
 			p.stateMu.Lock()
 			if _, ok := p.RoomsState[client.RoomID]; !ok {
-				p.RoomsState[client.RoomID] = &GameRoomState{
+				room := &GameRoomState{
 					RoomID:    client.RoomID,
+					CreatedBy: client.UserId,
 					Players:   []uint{client.UserId},
 					Lives:     map[uint]int{client.UserId: 3},
 					Points:    map[uint]int{client.UserId: 0},
 					TurnIndex: 0,
 					CharSet:   "",
 				}
+				p.RoomsState[client.RoomID] = room
+				p.BroadcastTimerStarted(client.RoomID)
 			} else {
 				room := p.RoomsState[client.RoomID]
 				if _, exists := room.Lives[client.UserId]; !exists {
@@ -116,5 +123,39 @@ func (p *GamePool) Start() {
 			}
 			p.mu.RUnlock()
 		}
+	}
+}
+
+func (p *GamePool) BroadcastTimerStarted(roomID uint) {
+	p.mu.RLock()
+	clients := p.Rooms[roomID]
+	if len(clients) == 0 {
+		p.mu.RUnlock()
+		return
+	}
+	for _, client := range clients {
+		go client.WriteJSON(GameMessage{
+			Type:   TimerStarted,
+			RoomID: roomID,
+			Payload: map[string]any{
+				"duration": 60,
+			},
+		})
+	}
+	p.mu.RUnlock()
+}
+
+func (p *BasePool[T]) RoomCount(roomID uint) int {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
+	return len(p.Rooms[roomID])
+}
+
+func (p *GamePool) BroadcastToRoom(roomID uint, msg GameMessage) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	for _, client := range p.Rooms[roomID] {
+		go client.WriteJSON(msg)
 	}
 }
