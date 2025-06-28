@@ -79,13 +79,11 @@ func (u *gameWSUsecase) Read(c *model.GameClient) {
 				continue
 			}
 
-			charSet := room.CharSet
-			isValid := util.ContainsSubstring(answer, charSet) && util.IsWordValid(answer)
-			if isValid {
-				fmt.Printf("Valid answer by %d: %s\n", c.UserId, answer)
+			game := NewGameUsecase(c.Pool, room)
 
+			if util.ContainsSubstring(answer, room.CharSet) && util.IsWordValid(answer) {
 				room.CharSet = util.GenerateRandomString(2, 5)
-				room.Points[c.UserId] += 1
+				room.Points[c.UserId]++
 
 				u.BroadcastMessage(c, model.GameMessage{
 					Type:   model.Answer,
@@ -98,7 +96,11 @@ func (u *gameWSUsecase) Read(c *model.GameClient) {
 						"score":      room.Points[c.UserId],
 					},
 				})
+
+				game.StartNextTurn()
+
 			} else {
+				room.Lives[c.UserId]--
 				fmt.Printf("Invalid answer by %d: %s\n", c.UserId, answer)
 
 				u.BroadcastMessage(c, model.GameMessage{
@@ -108,8 +110,17 @@ func (u *gameWSUsecase) Read(c *model.GameClient) {
 					Payload: map[string]any{
 						"correct": false,
 						"answer":  answer,
+						"lives":   room.Lives[c.UserId],
 					},
 				})
+
+				if game.checkEndCondition() {
+					break
+				}
+
+				if room.Lives[c.UserId] == 0 && room.Players[room.TurnIndex] == c.UserId {
+					game.StartNextTurn()
+				}
 			}
 
 		case model.Leave:
@@ -120,21 +131,29 @@ func (u *gameWSUsecase) Read(c *model.GameClient) {
 				fmt.Println("Client has not joined any room")
 				continue
 			}
-			roomState := c.Pool.RoomsState[c.RoomID]
-			if roomState != nil && roomState.CreatedBy == c.UserId {
-				roomState.Started = true
-				roomState.CharSet = util.GenerateRandomString(2, 5)
+			room := c.Pool.RoomsState[c.RoomID]
+			if room != nil && room.CreatedBy == c.UserId {
+				room.Started = true
+				room.CharSet = util.GenerateRandomString(2, 5)
+
+				if room.Lives == nil {
+					room.Lives = make(map[uint]int)
+				}
+				for _, uid := range room.Players {
+					room.Lives[uid] = 3
+				}
+
 				u.BroadcastMessage(c, model.GameMessage{
 					Type:   model.StartGame,
 					RoomID: c.RoomID,
 					Payload: map[string]any{
 						"message":  "Game has started",
-						"char_set": roomState.CharSet,
+						"char_set": room.CharSet,
 					},
 				})
-				fmt.Println("Game manually started by creator:", c.UserId)
-			} else {
-				fmt.Println("Unauthorized manual start attempt by:", c.UserId)
+
+				game := NewGameUsecase(c.Pool, room)
+				game.StartNextTurn()
 			}
 
 		case model.Typing:

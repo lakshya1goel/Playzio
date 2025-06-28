@@ -151,3 +151,11 @@ func (p *BasePool[T]) RoomCount(roomID uint) int {
 
 	return len(p.Rooms[roomID])
 }
+
+func (p *GamePool) BroadcastToRoom(roomID uint, msg GameMessage) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	for _, client := range p.Rooms[roomID] {
+		go client.WriteJSON(msg)
+	}
+}
