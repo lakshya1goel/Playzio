@@ -78,14 +78,22 @@ func (p *GamePool) Start() {
 
 			p.stateMu.Lock()
 			if _, ok := p.RoomsState[client.RoomID]; !ok {
-				p.RoomsState[client.RoomID] = &GameRoomState{
+				room := &GameRoomState{
 					RoomID:    client.RoomID,
+					CreatedBy: client.UserId,
 					Players:   []uint{client.UserId},
 					Lives:     map[uint]int{client.UserId: 3},
 					Points:    map[uint]int{client.UserId: 0},
 					TurnIndex: 0,
 					CharSet:   "",
 				}
+				p.RoomsState[client.RoomID] = room
+				room.StartCountdown(func() {
+					room.Started = true
+					p.BroadcastGameStarted(client.RoomID)
+				}, func(secondsLeft int) {
+					p.BroadcastCountdown(client.RoomID, secondsLeft)
+				})
 			} else {
 				room := p.RoomsState[client.RoomID]
 				if _, exists := room.Lives[client.UserId]; !exists {
@@ -118,3 +126,30 @@ func (p *GamePool) Start() {
 		}
 	}
 }
+
+func (p *GamePool) BroadcastCountdown(roomID uint, secondsLeft int) {
+	p.mu.RLock()
+	clients := p.Rooms[roomID]
+	for _, client := range clients {
+		go client.WriteJSON(GameMessage{
+			Type:    "countdown",
+			RoomID:  roomID,
+			Payload: map[string]any{"seconds_left": secondsLeft},
+		})
+	}
+	p.mu.RUnlock()
+}
+
+func (p *GamePool) BroadcastGameStarted(roomID uint) {
+	p.mu.RLock()
+	clients := p.Rooms[roomID]
+	for _, client := range clients {
+		go client.WriteJSON(GameMessage{
+			Type:    "game_started",
+			RoomID:  roomID,
+			Payload: map[string]any{"message": "Game has started"},
+		})
+	}
+	p.mu.RUnlock()
+}
+
