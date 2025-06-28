@@ -72,6 +72,19 @@ func (u *gameWSUsecase) Read(c *model.GameClient) {
 
 		case model.Leave:
 			u.LeaveRoom(c)
+		
+			case model.StartGame:
+			if c.RoomID == 0 {
+				fmt.Println("Client has not joined any room")
+				continue
+			}
+			roomState := c.Pool.RoomsState[c.RoomID]
+			if roomState != nil && roomState.CreatedBy == c.UserId {
+				roomState.HandleManualStart()
+				fmt.Println("Game manually started by creator:", c.UserId)
+			} else {
+				fmt.Println("Unauthorized manual start attempt by:", c.UserId)
+			}
 
 		default:
 			fmt.Println("Unknown game message type:", msg.Type)
