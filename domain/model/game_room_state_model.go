@@ -9,5 +9,6 @@ type GameRoomState struct {
 	TurnIndex int
 	CharSet   string
 	Started   bool
-	Capacity  int
+	Round     int
+	TimeLimit int
 }

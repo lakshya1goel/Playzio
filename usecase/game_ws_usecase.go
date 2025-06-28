@@ -3,6 +3,7 @@ package usecase
 import (
 	"fmt"
 
+	"github.com/lakshya1goel/Playzio/bootstrap/util"
 	"github.com/lakshya1goel/Playzio/domain/model"
 )
 
@@ -24,7 +25,7 @@ func (u *gameWSUsecase) JoinRoom(c *model.GameClient, roomID uint) {
 	if c.Pool.RoomCount(roomID) >= 10 {
 		fmt.Println("Room is full, cannot join:", roomID)
 		return
-	}	
+	}
 	c.Pool.Register <- c
 }
 
@@ -61,11 +62,55 @@ func (u *gameWSUsecase) Read(c *model.GameClient) {
 			u.JoinRoom(c, msg.RoomID)
 
 		case model.Answer, model.Timeout:
-			if c.RoomID == 0 {
-				fmt.Println("Client has not joined any room")
+			room := c.Pool.RoomsState[c.RoomID]
+			if room == nil || !room.Started {
+				fmt.Println("Room not found or game not started")
 				continue
 			}
-			u.BroadcastMessage(c, msg)
+
+			answerRaw, ok := msg.Payload["answer"]
+			if !ok {
+				fmt.Println("Answer not provided in payload")
+				continue
+			}
+			answer, ok := answerRaw.(string)
+			if !ok {
+				fmt.Println("Answer is not a string")
+				continue
+			}
+
+			charSet := room.CharSet
+			isValid := util.ContainsSubstring(answer, charSet) && util.IsWordValid(answer)
+			if isValid {
+				fmt.Printf("Valid answer by %d: %s\n", c.UserId, answer)
+
+				room.CharSet = util.GenerateRandomString(2, 5)
+				room.Points[c.UserId] += 1
+
+				u.BroadcastMessage(c, model.GameMessage{
+					Type:   model.Answer,
+					RoomID: c.RoomID,
+					UserID: c.UserId,
+					Payload: map[string]any{
+						"correct":    true,
+						"answer":     answer,
+						"newCharSet": room.CharSet,
+						"score":      room.Points[c.UserId],
+					},
+				})
+			} else {
+				fmt.Printf("Invalid answer by %d: %s\n", c.UserId, answer)
+
+				u.BroadcastMessage(c, model.GameMessage{
+					Type:   model.Answer,
+					RoomID: c.RoomID,
+					UserID: c.UserId,
+					Payload: map[string]any{
+						"correct": false,
+						"answer":  answer,
+					},
+				})
+			}
 
 		case model.Leave:
 			u.LeaveRoom(c)
@@ -78,14 +123,32 @@ func (u *gameWSUsecase) Read(c *model.GameClient) {
 			roomState := c.Pool.RoomsState[c.RoomID]
 			if roomState != nil && roomState.CreatedBy == c.UserId {
 				roomState.Started = true
+				roomState.CharSet = util.GenerateRandomString(2, 5)
 				u.BroadcastMessage(c, model.GameMessage{
-					Type:    model.StartGame,
-					RoomID:  c.RoomID,
-					Payload: map[string]any{"message": "Game has started"},
+					Type:   model.StartGame,
+					RoomID: c.RoomID,
+					Payload: map[string]any{
+						"message":  "Game has started",
+						"char_set": roomState.CharSet,
+					},
 				})
 				fmt.Println("Game manually started by creator:", c.UserId)
 			} else {
 				fmt.Println("Unauthorized manual start attempt by:", c.UserId)
+			}
+
+		case model.Typing:
+			room := c.Pool.RoomsState[c.RoomID]
+			if room == nil {
+				break
+			}
+			c.Pool.Broadcast <- model.GameMessage{
+				Type:   model.Typing,
+				RoomID: c.RoomID,
+				UserID: c.UserId,
+				Payload: map[string]any{
+					"text": msg.Payload["text"],
+				},
 			}
 
 		default:
