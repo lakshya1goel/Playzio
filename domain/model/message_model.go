@@ -28,9 +28,11 @@ type GameMessage struct {
 }
 
 const (
-	Join      = "join"
-	Answer    = "answer"
-	Leave     = "leave"
-	Timeout   = "timeout"
-	StartGame = "start_game"
+	Join         = "join"
+	Answer       = "answer"
+	Leave        = "leave"
+	Timeout      = "timeout"
+	TimerStarted = "timer_started"
+	StartGame    = "start_game"
+	NextTurn     = "next_turn"
 )

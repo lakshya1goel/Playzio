@@ -21,6 +21,10 @@ func NewGameWSUsecase() GameWSUsecase {
 
 func (u *gameWSUsecase) JoinRoom(c *model.GameClient, roomID uint) {
 	c.RoomID = roomID
+	if c.Pool.RoomCount(roomID) >= 10 {
+		fmt.Println("Room is full, cannot join:", roomID)
+		return
+	}	
 	c.Pool.Register <- c
 }
 
@@ -56,14 +60,7 @@ func (u *gameWSUsecase) Read(c *model.GameClient) {
 			}
 			u.JoinRoom(c, msg.RoomID)
 
-		case model.Answer:
-			if c.RoomID == 0 {
-				fmt.Println("Client has not joined any room")
-				continue
-			}
-			u.BroadcastMessage(c, msg)
-
-		case model.Timeout:
+		case model.Answer, model.Timeout:
 			if c.RoomID == 0 {
 				fmt.Println("Client has not joined any room")
 				continue
@@ -72,15 +69,20 @@ func (u *gameWSUsecase) Read(c *model.GameClient) {
 
 		case model.Leave:
 			u.LeaveRoom(c)
-		
-			case model.StartGame:
+
+		case model.StartGame:
 			if c.RoomID == 0 {
 				fmt.Println("Client has not joined any room")
 				continue
 			}
 			roomState := c.Pool.RoomsState[c.RoomID]
 			if roomState != nil && roomState.CreatedBy == c.UserId {
-				roomState.HandleManualStart()
+				roomState.Started = true
+				u.BroadcastMessage(c, model.GameMessage{
+					Type:    model.StartGame,
+					RoomID:  c.RoomID,
+					Payload: map[string]any{"message": "Game has started"},
+				})
 				fmt.Println("Game manually started by creator:", c.UserId)
 			} else {
 				fmt.Println("Unauthorized manual start attempt by:", c.UserId)
