@@ -35,4 +35,5 @@ const (
 	TimerStarted = "timer_started"
 	StartGame    = "start_game"
 	NextTurn     = "next_turn"
+	GameOver     = "game_over"
 )
