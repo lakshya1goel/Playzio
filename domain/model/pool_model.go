@@ -93,6 +93,7 @@ func (p *GamePool) Start() {
 					Started:   false,
 					Round:     0,
 					TimeLimit: 0,
+					WinnerID:  0,
 				}
 				p.RoomsState[client.RoomID] = gameRoomState
 				p.BroadcastTimerStarted(client.RoomID)
