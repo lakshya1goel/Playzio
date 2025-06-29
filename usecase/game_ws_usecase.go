@@ -62,8 +62,8 @@ func (u *gameWSUsecase) Read(c *model.GameClient) {
 			u.JoinRoom(c, msg.RoomID)
 
 		case model.Answer, model.Timeout:
-			room := c.Pool.RoomsState[c.RoomID]
-			if room == nil || !room.Started {
+			gameRoomState := c.Pool.RoomsState[c.RoomID]
+			if gameRoomState == nil || !gameRoomState.Started {
 				fmt.Println("Room not found or game not started")
 				continue
 			}
@@ -79,11 +79,11 @@ func (u *gameWSUsecase) Read(c *model.GameClient) {
 				continue
 			}
 
-			game := NewGameUsecase(c.Pool, room)
+			game := NewGameUsecase(c.Pool, gameRoomState)
 
-			if util.ContainsSubstring(answer, room.CharSet) && util.IsWordValid(answer) {
-				room.CharSet = util.GenerateRandomString(2, 5)
-				room.Points[c.UserId]++
+			if util.ContainsSubstring(answer, gameRoomState.CharSet) && util.IsWordValid(answer) {
+				gameRoomState.CharSet = util.GenerateRandomString(2, 5)
+				gameRoomState.Points[c.UserId]++
 
 				u.BroadcastMessage(c, model.GameMessage{
 					Type:   model.Answer,
@@ -92,15 +92,15 @@ func (u *gameWSUsecase) Read(c *model.GameClient) {
 					Payload: map[string]any{
 						"correct":    true,
 						"answer":     answer,
-						"newCharSet": room.CharSet,
-						"score":      room.Points[c.UserId],
+						"newCharSet": gameRoomState.CharSet,
+						"score":      gameRoomState.Points[c.UserId],
 					},
 				})
 
 				game.StartNextTurn()
 
 			} else {
-				room.Lives[c.UserId]--
+				gameRoomState.Lives[c.UserId]--
 				fmt.Printf("Invalid answer by %d: %s\n", c.UserId, answer)
 
 				u.BroadcastMessage(c, model.GameMessage{
@@ -110,7 +110,7 @@ func (u *gameWSUsecase) Read(c *model.GameClient) {
 					Payload: map[string]any{
 						"correct": false,
 						"answer":  answer,
-						"lives":   room.Lives[c.UserId],
+						"lives":   gameRoomState.Lives[c.UserId],
 					},
 				})
 
@@ -118,7 +118,7 @@ func (u *gameWSUsecase) Read(c *model.GameClient) {
 					break
 				}
 
-				if room.Lives[c.UserId] == 0 && room.Players[room.TurnIndex] == c.UserId {
+				if gameRoomState.Lives[c.UserId] == 0 && gameRoomState.Players[gameRoomState.TurnIndex] == c.UserId {
 					game.StartNextTurn()
 				}
 			}
@@ -131,34 +131,31 @@ func (u *gameWSUsecase) Read(c *model.GameClient) {
 				fmt.Println("Client has not joined any room")
 				continue
 			}
-			room := c.Pool.RoomsState[c.RoomID]
-			if room != nil && room.CreatedBy == c.UserId {
-				room.Started = true
-				room.CharSet = util.GenerateRandomString(2, 5)
-
-				if room.Lives == nil {
-					room.Lives = make(map[uint]int)
-				}
-				for _, uid := range room.Players {
-					room.Lives[uid] = 3
-				}
+			gameRoomState := c.Pool.RoomsState[c.RoomID]
+			if gameRoomState != nil && gameRoomState.CreatedBy == c.UserId {
+				gameRoomState.Started = true
+				gameRoomState.CharSet = util.GenerateRandomString(2, 5)
+				gameRoomState.Round = 1
+				gameRoomState.TimeLimit = 12
 
 				u.BroadcastMessage(c, model.GameMessage{
 					Type:   model.StartGame,
 					RoomID: c.RoomID,
 					Payload: map[string]any{
 						"message":  "Game has started",
-						"char_set": room.CharSet,
+						"char_set": gameRoomState.CharSet,
+						"round":    gameRoomState.Round,
+						"time_limit": gameRoomState.TimeLimit,
 					},
 				})
 
-				game := NewGameUsecase(c.Pool, room)
+				game := NewGameUsecase(c.Pool, gameRoomState)
 				game.StartNextTurn()
 			}
 
 		case model.Typing:
-			room := c.Pool.RoomsState[c.RoomID]
-			if room == nil {
+			gameRoomState := c.Pool.RoomsState[c.RoomID]
+			if gameRoomState == nil {
 				break
 			}
 			c.Pool.Broadcast <- model.GameMessage{
