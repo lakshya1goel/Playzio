@@ -11,4 +11,5 @@ type GameRoomState struct {
 	Started   bool
 	Round     int
 	TimeLimit int
+	WinnerID  uint
 }

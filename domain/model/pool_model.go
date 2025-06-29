@@ -82,7 +82,7 @@ func (p *GamePool) Start() {
 
 			p.stateMu.Lock()
 			if _, ok := p.RoomsState[client.RoomID]; !ok {
-				room := &GameRoomState{
+				gameRoomState := &GameRoomState{
 					RoomID:    client.RoomID,
 					CreatedBy: client.UserId,
 					Players:   []uint{client.UserId},
@@ -90,15 +90,19 @@ func (p *GamePool) Start() {
 					Points:    map[uint]int{client.UserId: 0},
 					TurnIndex: 0,
 					CharSet:   "",
+					Started:   false,
+					Round:     0,
+					TimeLimit: 0,
+					WinnerID:  0,
 				}
-				p.RoomsState[client.RoomID] = room
+				p.RoomsState[client.RoomID] = gameRoomState
 				p.BroadcastTimerStarted(client.RoomID)
 			} else {
-				room := p.RoomsState[client.RoomID]
-				if _, exists := room.Lives[client.UserId]; !exists {
-					room.Players = append(room.Players, client.UserId)
-					room.Lives[client.UserId] = 3
-					room.Points[client.UserId] = 0
+				gameRoomState := p.RoomsState[client.RoomID]
+				if _, exists := gameRoomState.Lives[client.UserId]; !exists {
+					gameRoomState.Players = append(gameRoomState.Players, client.UserId)
+					gameRoomState.Lives[client.UserId] = 3
+					gameRoomState.Points[client.UserId] = 0
 				}
 			}
 			p.stateMu.Unlock()
