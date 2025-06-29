@@ -142,9 +142,9 @@ func (u *gameWSUsecase) Read(c *model.GameClient) {
 					Type:   model.StartGame,
 					RoomID: c.RoomID,
 					Payload: map[string]any{
-						"message":  "Game has started",
-						"char_set": gameRoomState.CharSet,
-						"round":    gameRoomState.Round,
+						"message":    "Game has started",
+						"char_set":   gameRoomState.CharSet,
+						"round":      gameRoomState.Round,
 						"time_limit": gameRoomState.TimeLimit,
 					},
 				})
