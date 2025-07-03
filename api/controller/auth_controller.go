@@ -20,6 +20,34 @@ func NewAuthController() *AuthController {
 	}
 }
 
+func (ctrl *AuthController) GoogleSignIn(c *gin.Context) {
+	ctrl.authUseCase.HandleGoogleConfig(c)
+}
+
+func (ctrl *AuthController) GoogleCallback(c *gin.Context) {
+	code := c.Query("code")
+	if code == "" {
+		c.JSON(http.StatusBadRequest, domain.ErrorResponse{
+			Message: "Code is required",
+		})
+		return
+	}
+
+	response, err := ctrl.authUseCase.HandleGoogleLogin(c, code)
+
+	if err != nil {
+		c.JSON(err.StatusCode, domain.ErrorResponse{
+			Message: err.Message,
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, domain.SuccessResponse{
+		Message: "Google login successful",
+		Data:    response,
+	})
+}
+
 func (ctrl *AuthController) BeginAuth(c *gin.Context) {
 	c.Request = c.Request.WithContext(c)
 
