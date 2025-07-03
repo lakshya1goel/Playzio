@@ -15,6 +15,7 @@ import (
 	"github.com/lakshya1goel/Playzio/domain/model"
 	"github.com/lakshya1goel/Playzio/repository"
 	"golang.org/x/oauth2"
+	"gorm.io/gorm"
 )
 
 type AuthUseCase interface {
@@ -43,25 +44,77 @@ func (uc *authUseCase) HandleGoogleConfig(c *gin.Context) {
 func (uc *authUseCase) HandleGoogleLogin(c *gin.Context, code string) (*dto.AuthResponse, *domain.HttpError) {
 	token, err := util.GoogleOAuthConfig.Exchange(c, code)
 	if err != nil {
+		fmt.Println("Error exchanging token with Google:", err)
 		return nil, domain.NewHttpError(http.StatusInternalServerError, "Failed to exchange token with Google")
 	}
 
 	client := util.GoogleOAuthConfig.Client(c, token)
 	userInfoResp, err := client.Get("https://www.googleapis.com/oauth2/v1/userinfo?alt=json")
 	if err != nil {
+		fmt.Println("Error getting user info from Google:", err)
 		return nil, domain.NewHttpError(http.StatusInternalServerError, "Failed to get user info from Google")
 	}
 	defer userInfoResp.Body.Close()
 
 	var userInfo dto.UserInfo
 	body, _ := io.ReadAll(userInfoResp.Body)
-	json.Unmarshal(body, &userInfo)
+	err = json.Unmarshal(body, &userInfo)
+	if err != nil {
+		fmt.Println("Error unmarshalling user info:", err)
+		return nil, domain.NewHttpError(http.StatusInternalServerError, "Failed to unmarshal user info")
+	}
+
+	fmt.Println("User info:", userInfo)
 
 	resp, err := uc.userRepo.GetUserByEmail(c, userInfo.Email)
 	if err != nil {
-		return nil, &domain.HttpError{
-			StatusCode: http.StatusInternalServerError,
-			Message:    "Failed to get user by email",
+		if err != gorm.ErrRecordNotFound {
+			return nil, &domain.HttpError{
+				StatusCode: http.StatusInternalServerError,
+				Message:    "Failed to get user by email",
+			}
+		} else {
+			accessTokenExp := time.Now().Add(24 * time.Hour).Unix()
+			refreshTokenExp := time.Now().Add(24 * 30 * time.Hour).Unix()
+
+			accessToken, err := util.GenerateToken(resp.ID, accessTokenExp)
+			if err != nil {
+				return nil, &domain.HttpError{
+					StatusCode: http.StatusInternalServerError,
+					Message:    "Failed to generate access token",
+				}
+			}
+			refreshToken, err := util.GenerateToken(resp.ID, refreshTokenExp)
+			if err != nil {
+				return nil, &domain.HttpError{
+					StatusCode: http.StatusInternalServerError,
+					Message:    "Failed to generate refresh token",
+				}
+			}
+
+			user := &model.User{
+				Name:       userInfo.Name,
+				Email:      userInfo.Email,
+				ProfilePic: &userInfo.Picture,
+			}
+
+			err = uc.userRepo.CreateUser(c, user)
+			if err != nil {
+				return nil, &domain.HttpError{
+					StatusCode: http.StatusInternalServerError,
+					Message:    "Failed to create user",
+				}
+			}
+			return &dto.AuthResponse{
+				ID:              user.ID,
+				Name:            user.Name,
+				Email:           user.Email,
+				ProfilePic:      *user.ProfilePic,
+				AccessToken:     accessToken,
+				AccessTokenExp:  accessTokenExp,
+				RefreshToken:    refreshToken,
+				RefreshTokenExp: refreshTokenExp,
+			}, nil
 		}
 	}
 
@@ -83,19 +136,6 @@ func (uc *authUseCase) HandleGoogleLogin(c *gin.Context, code string) (*dto.Auth
 		}
 	}
 
-	user := &model.User{
-		Name:       userInfo.Name,
-		Email:      userInfo.Email,
-		ProfilePic: &userInfo.Picture,
-	}
-
-	err = uc.userRepo.CreateUser(c, user)
-	if err != nil {
-		return nil, &domain.HttpError{
-			StatusCode: http.StatusInternalServerError,
-			Message:    "Failed to create user",
-		}
-	}
 	return &dto.AuthResponse{
 		ID:              resp.ID,
 		Name:            resp.Name,
