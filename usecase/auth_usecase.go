@@ -23,6 +23,7 @@ type AuthUseCase interface {
 	HandleGoogleLogin(c *gin.Context, code string) (*dto.AuthResponse, *domain.HttpError)
 	Authenticate(c *gin.Context, user model.User) (*dto.AuthResponse, *domain.HttpError)
 	AuthenticateGuest(c *gin.Context, name string) (*dto.GuestAuthResponse, *domain.HttpError)
+	GetAccessTokenFromRefreshToken(c *gin.Context, refreshToken string) (*dto.AccessTokenResponse, *domain.HttpError)
 }
 
 type authUseCase struct {
@@ -44,14 +45,12 @@ func (uc *authUseCase) HandleGoogleConfig(c *gin.Context) {
 func (uc *authUseCase) HandleGoogleLogin(c *gin.Context, code string) (*dto.AuthResponse, *domain.HttpError) {
 	token, err := util.GoogleOAuthConfig.Exchange(c, code)
 	if err != nil {
-		fmt.Println("Error exchanging token with Google:", err)
 		return nil, domain.NewHttpError(http.StatusInternalServerError, "Failed to exchange token with Google")
 	}
 
 	client := util.GoogleOAuthConfig.Client(c, token)
 	userInfoResp, err := client.Get("https://www.googleapis.com/oauth2/v1/userinfo?alt=json")
 	if err != nil {
-		fmt.Println("Error getting user info from Google:", err)
 		return nil, domain.NewHttpError(http.StatusInternalServerError, "Failed to get user info from Google")
 	}
 	defer userInfoResp.Body.Close()
@@ -60,11 +59,8 @@ func (uc *authUseCase) HandleGoogleLogin(c *gin.Context, code string) (*dto.Auth
 	body, _ := io.ReadAll(userInfoResp.Body)
 	err = json.Unmarshal(body, &userInfo)
 	if err != nil {
-		fmt.Println("Error unmarshalling user info:", err)
 		return nil, domain.NewHttpError(http.StatusInternalServerError, "Failed to unmarshal user info")
 	}
-
-	fmt.Println("User info:", userInfo)
 
 	resp, err := uc.userRepo.GetUserByEmail(c, userInfo.Email)
 	if err != nil {
@@ -210,4 +206,37 @@ func (uc *authUseCase) AuthenticateGuest(c *gin.Context, name string) (*dto.Gues
 		Name:  name,
 	}
 	return response, nil
+}
+
+func (uc *authUseCase) GetAccessTokenFromRefreshToken(c *gin.Context, refreshToken string) (*dto.AccessTokenResponse, *domain.HttpError) {
+	userID, err := util.ValidateRefreshToken(refreshToken)
+	if err != nil {
+		return nil, &domain.HttpError{
+			StatusCode: http.StatusUnauthorized,
+			Message:    "Invalid refresh token",
+		}
+	}
+
+	resp, err := uc.userRepo.GetUserByID(c, userID)
+	if err != nil {
+		return nil, &domain.HttpError{
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to get user by ID",
+		}
+	}
+
+	accessTokenExp := time.Now().Add(24 * time.Hour).Unix()
+
+	accessToken, err := util.GenerateToken(resp.ID, accessTokenExp)
+	if err != nil {
+		return nil, &domain.HttpError{
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to generate access token",
+		}
+	}
+
+	return &dto.AccessTokenResponse{
+		AccessToken:    accessToken,
+		AccessTokenExp: accessTokenExp,
+	}, nil
 }

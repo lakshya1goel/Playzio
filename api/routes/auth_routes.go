@@ -13,5 +13,6 @@ func AuthRoutes(router *gin.RouterGroup, authController *controller.AuthControll
 		authRouter.GET("/google", authController.BeginAuth)
 		// authRouter.GET("/callback", authController.Callback)
 		authRouter.POST("/guest", authController.GuestAuth)
+		authRouter.POST("/access-token", authController.GetAccessTokenFromRefreshToekn)
 	}
 }
