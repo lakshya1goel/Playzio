@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -37,7 +36,6 @@ func (ctrl *AuthController) GoogleCallback(c *gin.Context) {
 	response, err := ctrl.authUseCase.HandleGoogleLogin(c, code)
 
 	if err != nil {
-		fmt.Println("Error handling Google login:", err)
 		c.JSON(err.StatusCode, domain.ErrorResponse{
 			Message: err.Message,
 		})
@@ -123,6 +121,29 @@ func (ctrl *AuthController) GuestAuth(c *gin.Context) {
 	c.JSON(http.StatusOK, domain.SuccessResponse{
 		Success: true,
 		Message: "Guest authenticated successfully",
+		Data:    response,
+	})
+}
+
+func (ctrl *AuthController) GetAccessTokenFromRefreshToekn(c *gin.Context) {
+	refreshToken := c.Query("refresh_token")
+	if refreshToken == "" {
+		c.JSON(http.StatusBadRequest, domain.ErrorResponse{
+			Message: "Refresh token is required",
+		})
+		return
+	}
+
+	response, httpErr := ctrl.authUseCase.GetAccessTokenFromRefreshToken(c, refreshToken)
+	if httpErr != nil {
+		c.JSON(httpErr.StatusCode, domain.ErrorResponse{
+			Message: httpErr.Message,
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, domain.SuccessResponse{
+		Message: "Access token retrieved successfully",
 		Data:    response,
 	})
 }

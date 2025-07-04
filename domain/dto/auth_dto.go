@@ -23,3 +23,8 @@ type GuestAuthResponse struct {
 	Exp   int64  `json:"exp"`
 	Name  string `json:"name"`
 }
+
+type AccessTokenResponse struct {
+	AccessToken     string `json:"access_token"`
+	AccessTokenExp  int64  `json:"access_token_exp"`
+}

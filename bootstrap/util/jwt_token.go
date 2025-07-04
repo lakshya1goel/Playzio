@@ -50,3 +50,21 @@ func VerifyToken(tokenString string) (jwt.MapClaims, error) {
 
 	return nil, fmt.Errorf("invalid token")
 }
+
+func ValidateRefreshToken(tokenString string) (uint, error) {
+	claims, err := VerifyToken(tokenString)
+	if err != nil {
+		return 0, err
+	}
+
+	if claims["type"] != "authenticated" {
+		return 0, fmt.Errorf("invalid token type")
+	}
+
+	userID, ok := claims["user_id"].(float64)
+	if !ok {
+		return 0, fmt.Errorf("invalid user ID in token")
+	}
+
+	return uint(userID), nil
+}
