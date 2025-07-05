@@ -12,5 +12,7 @@ func RoomRoutes(router *gin.RouterGroup, roomController *controller.RoomControll
 	{
 		roomRouter.POST("/", roomController.CreateRoom)
 		roomRouter.POST("/join", roomController.JoinRoom)
+		roomRouter.GET("/public", roomController.GetAllPublicRooms)
+		roomRouter.POST("/leave", roomController.LeaveRoom)
 	}
 }

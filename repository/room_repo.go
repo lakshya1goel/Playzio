@@ -14,6 +14,10 @@ type RoomRepository interface {
 	AddRoomMember(c *gin.Context, member *model.RoomMember) error
 	IsUserInRoom(c *gin.Context, roomID uint, userID uint) (bool, error)
 	IsGuestInRoom(c *gin.Context, roomID uint, guestID string) (bool, error)
+	GetAllPublicRooms(c *gin.Context) ([]model.Room, error)
+	DeleteRoom(c *gin.Context, roomID uint) error
+	ChangeRoomCreator(c *gin.Context, roomID uint, creatorID uint) error
+	ChangeRoomGuestCreator(c *gin.Context, roomID uint, guestID string) error
 }
 
 type roomRepository struct{}
@@ -79,4 +83,37 @@ func (r *roomRepository) IsGuestInRoom(c *gin.Context, roomID uint, guestID stri
 		return false, err
 	}
 	return count > 0, nil
+}
+
+func (r *roomRepository) GetAllPublicRooms(c *gin.Context) ([]model.Room, error) {
+	var rooms []model.Room
+	if err := database.Db.Preload("Members").Where("type = ?", "public").Find(&rooms).Error; err != nil {
+		return nil, err
+	}
+	return rooms, nil
+}
+
+func (r *roomRepository) DeleteRoom(c *gin.Context, roomID uint) error {
+	if err := database.Db.Where("id = ?", roomID).Delete(&model.Room{}).Error; err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *roomRepository) ChangeRoomCreator(c *gin.Context, roomID uint, creatorID uint) error {
+	if err := database.Db.Model(&model.Room{}).
+		Where("id = ?", roomID).
+		Update("creator_id", creatorID).Error; err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *roomRepository) ChangeRoomGuestCreator(c *gin.Context, roomID uint, guestID string) error {
+	if err := database.Db.Model(&model.Room{}).
+		Where("id = ?", roomID).
+		Update("creator_guest_id", guestID).Error; err != nil {
+		return err
+	}
+	return nil
 }
