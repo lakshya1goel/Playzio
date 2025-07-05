@@ -51,24 +51,57 @@ func (rc *RoomController) CreateRoom(c *gin.Context) {
 }
 
 func (rc *RoomController) JoinRoom(c *gin.Context) {
-	var request dto.JoinRoomRequest
-
-	if err := c.ShouldBindJSON(&request); err != nil {
+	joinCode := c.Query("join_code")
+	if joinCode == "" {
 		c.JSON(http.StatusBadRequest, domain.ErrorResponse{
-			Message: "Invalid request data",
+			Message: "Join code is required",
 		})
+		return
 	}
 
-	err := rc.roomUsecase.JoinRoom(c, request.JoinCode)
+	err := rc.roomUsecase.JoinRoom(c, joinCode)
 
 	if err != nil {
 		c.JSON(err.StatusCode, domain.ErrorResponse{
 			Message: err.Message,
 		})
+		return
 	}
 
 	c.JSON(http.StatusOK, domain.SuccessResponse{
 		Success: true,
 		Message: "Room joined successfully!",
+	})
+}
+
+func (rc *RoomController) GetAllPublicRooms(c *gin.Context) {
+	rooms, err := rc.roomUsecase.GetAllPublicRooms(c)
+	if err != nil {
+		c.JSON(err.StatusCode, domain.ErrorResponse{
+			Message: err.Message,
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, domain.SuccessResponse{
+		Success: true,
+		Message: "Public rooms fetched successfully!",
+		Data:    rooms,
+	})
+}
+
+func (rc *RoomController) LeaveRoom(c *gin.Context) {
+	err := rc.roomUsecase.LeaveRoom(c)
+
+	if err != nil {
+		c.JSON(err.StatusCode, domain.ErrorResponse{
+			Message: err.Message,
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, domain.SuccessResponse{
+		Success: true,
+		Message: "Left room successfully!",
 	})
 }
