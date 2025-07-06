@@ -27,6 +27,17 @@ func (u *gameWSUsecase) JoinRoom(c *model.GameClient, roomID uint) {
 		return
 	}
 	c.Pool.Register <- c
+
+	remainingTime := c.Pool.GetRemainingCountdownTime(roomID)
+	if remainingTime > 0 {
+		c.WriteJSON(model.GameMessage{
+			Type:   model.TimerStarted,
+			RoomID: roomID,
+			Payload: map[string]any{
+				"duration": remainingTime,
+			},
+		})
+	}
 }
 
 func (u *gameWSUsecase) LeaveRoom(c *model.GameClient) {
@@ -123,35 +134,17 @@ func (u *gameWSUsecase) Read(c *model.GameClient) {
 				}
 			}
 
+		case model.NextTurn:
+			if autoStart, ok := msg.Payload["auto_start"].(bool); ok && autoStart {
+				gameRoomState := c.Pool.RoomsState[c.RoomID]
+				if gameRoomState != nil && gameRoomState.Started {
+					game := NewGameUsecase(c.Pool, gameRoomState)
+					game.StartNextTurn()
+				}
+			}
+
 		case model.Leave:
 			u.LeaveRoom(c)
-
-		case model.StartGame:
-			if c.RoomID == 0 {
-				fmt.Println("Client has not joined any room")
-				continue
-			}
-			gameRoomState := c.Pool.RoomsState[c.RoomID]
-			if gameRoomState != nil && gameRoomState.CreatedBy == c.UserId {
-				gameRoomState.Started = true
-				gameRoomState.CharSet = util.GenerateRandomString(2, 5)
-				gameRoomState.Round = 1
-				gameRoomState.TimeLimit = 12
-
-				u.BroadcastMessage(c, model.GameMessage{
-					Type:   model.StartGame,
-					RoomID: c.RoomID,
-					Payload: map[string]any{
-						"message":    "Game has started",
-						"char_set":   gameRoomState.CharSet,
-						"round":      gameRoomState.Round,
-						"time_limit": gameRoomState.TimeLimit,
-					},
-				})
-
-				game := NewGameUsecase(c.Pool, gameRoomState)
-				game.StartNextTurn()
-			}
 
 		case model.Typing:
 			gameRoomState := c.Pool.RoomsState[c.RoomID]

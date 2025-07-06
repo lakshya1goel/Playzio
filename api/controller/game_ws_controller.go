@@ -20,15 +20,16 @@ func NewGameWSController(pool *model.GamePool, wsUsecase usecase.GameWSUsecase) 
 }
 
 func (wsc *GameWSController) HandleGameWebSocket(c *gin.Context) {
-	userId, conn, ok := util.UpgradeWithUserID(c)
+	userId, userName, conn, ok := util.UpgradeWithUserID(c)
 	if !ok {
 		return
 	}
 
 	client := &model.GameClient{
 		BaseClient: model.BaseClient{
-			Conn:   conn,
-			UserId: userId,
+			Conn:     conn,
+			UserId:   userId,
+			UserName: userName,
 		},
 		Pool: wsc.pool,
 	}

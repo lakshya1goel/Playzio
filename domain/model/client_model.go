@@ -7,10 +7,11 @@ import (
 )
 
 type BaseClient struct {
-	Conn   *websocket.Conn
-	UserId uint
-	RoomID uint
-	mu     sync.Mutex
+	Conn     *websocket.Conn
+	UserId   uint
+	UserName string
+	RoomID   uint
+	mu       sync.Mutex
 }
 
 func (bc *BaseClient) WriteJSON(v any) error {
