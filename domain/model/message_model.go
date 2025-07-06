@@ -36,4 +36,6 @@ const (
 	StartGame    = "start_game"
 	NextTurn     = "next_turn"
 	GameOver     = "game_over"
+	UserJoined   = "user_joined"
+	UserLeft     = "user_left"
 )

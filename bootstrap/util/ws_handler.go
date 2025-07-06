@@ -14,24 +14,32 @@ var Upgrader = websocket.Upgrader{
 	},
 }
 
-func UpgradeWithUserID(c *gin.Context) (uint, *websocket.Conn, bool) {
+func UpgradeWithUserID(c *gin.Context) (uint, string, *websocket.Conn, bool) {
 	userIdRaw, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"message": "Unauthorized"})
-		return 0, nil, false
+		return 0, "", nil, false
 	}
 
 	userId, ok := userIdRaw.(uint)
 	if !ok {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Invalid user ID in context"})
-		return 0, nil, false
+		return 0, "", nil, false
+	}
+
+	userNameRaw, exists := c.Get("user_name")
+	userName := ""
+	if exists {
+		if name, ok := userNameRaw.(string); ok {
+			userName = name
+		}
 	}
 
 	conn, err := Upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		log.Println("WebSocket upgrade error:", err)
-		return 0, nil, false
+		return 0, "", nil, false
 	}
 
-	return userId, conn, true
+	return userId, userName, conn, true
 }
