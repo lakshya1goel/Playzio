@@ -35,7 +35,7 @@ func (r *roomRepository) CreateRoom(c *gin.Context, room model.Room) (model.Room
 
 func (r *roomRepository) GetRoomByID(c *gin.Context, id uint) (model.Room, error) {
 	var room model.Room
-	if err := database.Db.First(&room, id).Error; err != nil {
+	if err := database.Db.Preload("Members").First(&room, id).Error; err != nil {
 		return model.Room{}, err
 	}
 	return room, nil
