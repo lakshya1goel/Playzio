@@ -20,7 +20,7 @@ func NewChatWSController(pool *model.ChatPool, wsUsecase usecase.ChatWSUsecase) 
 }
 
 func (wsc *ChatWSController) HandleWebSocket(c *gin.Context) {
-	userId, conn, ok := util.UpgradeWithUserID(c)
+	userId, _, conn, ok := util.UpgradeWithUserID(c)
 	if !ok {
 		return
 	}

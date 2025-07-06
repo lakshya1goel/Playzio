@@ -2,6 +2,7 @@ package model
 
 import (
 	"sync"
+	"time"
 
 	"github.com/lakshya1goel/Playzio/bootstrap/util"
 )
@@ -83,34 +84,84 @@ func (p *GamePool) Start() {
 			p.stateMu.Lock()
 			if _, ok := p.RoomsState[client.RoomID]; !ok {
 				gameRoomState := &GameRoomState{
-					RoomID:    client.RoomID,
-					CreatedBy: client.UserId,
-					Players:   []uint{client.UserId},
-					Lives:     map[uint]int{client.UserId: 3},
-					Points:    map[uint]int{client.UserId: 0},
-					TurnIndex: 0,
-					CharSet:   "",
-					Started:   false,
-					Round:     0,
-					TimeLimit: 0,
-					WinnerID:  0,
+					RoomID:           client.RoomID,
+					CreatedBy:        client.UserId,
+					Players:          []uint{client.UserId},
+					Lives:            map[uint]int{client.UserId: 3},
+					Points:           map[uint]int{client.UserId: 0},
+					TurnIndex:        0,
+					CharSet:          "",
+					Started:          false,
+					Round:            0,
+					TimeLimit:        0,
+					WinnerID:         0,
+					CountdownStarted: true,
+					CountdownEndTime: time.Now().Add(2 * time.Minute),
 				}
 				p.RoomsState[client.RoomID] = gameRoomState
-				p.BroadcastTimerStarted(client.RoomID)
+
+				gameRoomState.CountdownTimer = time.AfterFunc(2*time.Minute, func() {
+					p.handleCountdownEnd(client.RoomID)
+				})
+
+				p.BroadcastTimerStarted(client.RoomID, 120)
+
+				p.BroadcastToRoom(client.RoomID, GameMessage{
+					Type:   UserJoined,
+					RoomID: client.RoomID,
+					UserID: client.UserId,
+					Payload: map[string]any{
+						"user_id":   client.UserId,
+						"user_name": client.UserName,
+						"message":   "Room created and joined",
+					},
+				})
 			} else {
 				gameRoomState := p.RoomsState[client.RoomID]
 				if _, exists := gameRoomState.Lives[client.UserId]; !exists {
 					gameRoomState.Players = append(gameRoomState.Players, client.UserId)
 					gameRoomState.Lives[client.UserId] = 3
 					gameRoomState.Points[client.UserId] = 0
+
+					if gameRoomState.CountdownStarted && !gameRoomState.Started {
+						remainingTime := int(time.Until(gameRoomState.CountdownEndTime).Seconds())
+						if remainingTime > 0 {
+							p.BroadcastTimerStarted(client.RoomID, remainingTime)
+						}
+					}
+
+					p.BroadcastToRoom(client.RoomID, GameMessage{
+						Type:   UserJoined,
+						RoomID: client.RoomID,
+						UserID: client.UserId,
+						Payload: map[string]any{
+							"user_id":   client.UserId,
+							"user_name": client.UserName,
+							"message":   "User joined the room",
+						},
+					})
 				}
 			}
 			p.stateMu.Unlock()
 
 		case client := <-p.Unregister:
+			p.BroadcastToRoom(client.RoomID, GameMessage{
+				Type:   UserLeft,
+				RoomID: client.RoomID,
+				UserID: client.UserId,
+				Payload: map[string]any{
+					"user_id":   client.UserId,
+					"user_name": client.UserName,
+					"message":   "User left the room",
+				},
+			})
+
 			util.UnregisterClient(&p.mu, p.Rooms, client.RoomID, client.UserId)
 			p.stateMu.Lock()
 			if len(p.Rooms[client.RoomID]) == 0 {
+				if gameRoomState := p.RoomsState[client.RoomID]; gameRoomState != nil && gameRoomState.CountdownTimer != nil {
+					gameRoomState.CountdownTimer.Stop()
+				}
 				delete(p.RoomsState, client.RoomID)
 			}
 			p.stateMu.Unlock()
@@ -130,7 +181,58 @@ func (p *GamePool) Start() {
 	}
 }
 
-func (p *GamePool) BroadcastTimerStarted(roomID uint) {
+func (p *GamePool) handleCountdownEnd(roomID uint) {
+	p.stateMu.Lock()
+	defer p.stateMu.Unlock()
+
+	gameRoomState := p.RoomsState[roomID]
+	if gameRoomState == nil || gameRoomState.Started {
+		return
+	}
+
+	gameRoomState.Started = true
+	gameRoomState.CharSet = util.GenerateRandomString(2, 5)
+	gameRoomState.Round = 1
+	gameRoomState.TimeLimit = 12
+	gameRoomState.CountdownStarted = false
+
+	p.BroadcastToRoom(roomID, GameMessage{
+		Type:   StartGame,
+		RoomID: roomID,
+		Payload: map[string]any{
+			"message":    "Game has started",
+			"char_set":   gameRoomState.CharSet,
+			"round":      gameRoomState.Round,
+			"time_limit": gameRoomState.TimeLimit,
+		},
+	})
+
+	p.BroadcastToRoom(roomID, GameMessage{
+		Type:   NextTurn,
+		RoomID: roomID,
+		Payload: map[string]any{
+			"auto_start": true,
+		},
+	})
+}
+
+func (p *GamePool) GetRemainingCountdownTime(roomID uint) int {
+	p.stateMu.RLock()
+	defer p.stateMu.RUnlock()
+
+	gameRoomState := p.RoomsState[roomID]
+	if gameRoomState == nil || !gameRoomState.CountdownStarted || gameRoomState.Started {
+		return 0
+	}
+
+	remainingTime := int(time.Until(gameRoomState.CountdownEndTime).Seconds())
+	if remainingTime < 0 {
+		return 0
+	}
+	return remainingTime
+}
+
+func (p *GamePool) BroadcastTimerStarted(roomID uint, duration int) {
 	p.mu.RLock()
 	clients := p.Rooms[roomID]
 	if len(clients) == 0 {
@@ -142,7 +244,7 @@ func (p *GamePool) BroadcastTimerStarted(roomID uint) {
 			Type:   TimerStarted,
 			RoomID: roomID,
 			Payload: map[string]any{
-				"duration": 60,
+				"duration": duration,
 			},
 		})
 	}
