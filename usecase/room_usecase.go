@@ -13,7 +13,7 @@ import (
 
 type RoomUsecase interface {
 	CreateRoom(c *gin.Context, room model.Room) (*model.Room, *domain.HttpError)
-	JoinRoom(c *gin.Context, joinCode string) *domain.HttpError
+	JoinRoom(c *gin.Context, joinCode string) (*model.Room, *domain.HttpError)
 	GetAllPublicRooms(c *gin.Context) ([]model.Room, *domain.HttpError)
 	LeaveRoom(c *gin.Context) *domain.HttpError
 }
@@ -97,16 +97,16 @@ func (ru *roomUsecase) CreateRoom(c *gin.Context, room model.Room) (*model.Room,
 	return &createdRoom, nil
 }
 
-func (ru *roomUsecase) JoinRoom(c *gin.Context, joinCode string) *domain.HttpError {
+func (ru *roomUsecase) JoinRoom(c *gin.Context, joinCode string) (*model.Room, *domain.HttpError) {
 	room, err := ru.roomRepo.GetRoomByJoinCode(c, joinCode)
 	if err != nil {
 		if err.Error() == "record not found" {
-			return &domain.HttpError{
+			return nil, &domain.HttpError{
 				StatusCode: http.StatusNotFound,
 				Message:    "Room with the provided join code does not exist",
 			}
 		}
-		return &domain.HttpError{
+		return nil, &domain.HttpError{
 			StatusCode: http.StatusInternalServerError,
 			Message:    "Failed to retrieve room",
 		}
@@ -118,7 +118,7 @@ func (ru *roomUsecase) JoinRoom(c *gin.Context, joinCode string) *domain.HttpErr
 	if userType == "google" {
 		userID, exists := c.Get("user_id")
 		if !exists {
-			return &domain.HttpError{
+			return nil, &domain.HttpError{
 				StatusCode: http.StatusUnauthorized,
 				Message:    "User not authenticated",
 			}
@@ -127,13 +127,13 @@ func (ru *roomUsecase) JoinRoom(c *gin.Context, joinCode string) *domain.HttpErr
 
 		exists, err := ru.roomRepo.IsUserInRoom(c, room.ID, uid)
 		if err != nil {
-			return &domain.HttpError{
+			return nil, &domain.HttpError{
 				StatusCode: http.StatusInternalServerError,
 				Message:    "Failed to check room membership",
 			}
 		}
 		if exists {
-			return &domain.HttpError{
+			return nil, &domain.HttpError{
 				StatusCode: http.StatusConflict,
 				Message:    "User already joined the room",
 			}
@@ -149,13 +149,13 @@ func (ru *roomUsecase) JoinRoom(c *gin.Context, joinCode string) *domain.HttpErr
 
 		exists, err := ru.roomRepo.IsGuestInRoom(c, room.ID, guestID)
 		if err != nil {
-			return &domain.HttpError{
+			return nil, &domain.HttpError{
 				StatusCode: http.StatusInternalServerError,
 				Message:    "Failed to check guest room membership",
 			}
 		}
 		if exists {
-			return &domain.HttpError{
+			return nil, &domain.HttpError{
 				StatusCode: http.StatusConflict,
 				Message:    "Guest already joined the room",
 			}
@@ -167,20 +167,28 @@ func (ru *roomUsecase) JoinRoom(c *gin.Context, joinCode string) *domain.HttpErr
 			GuestName: &guestName,
 		}
 	} else {
-		return &domain.HttpError{
+		return nil, &domain.HttpError{
 			StatusCode: http.StatusUnauthorized,
 			Message:    "Invalid user type",
 		}
 	}
 
 	if err := ru.roomRepo.AddRoomMember(c, &member); err != nil {
-		return &domain.HttpError{
+		return nil, &domain.HttpError{
 			StatusCode: http.StatusInternalServerError,
 			Message:    "Failed to add member to room",
 		}
 	}
 
-	return nil
+	room, err = ru.roomRepo.GetRoomByID(c, room.ID)
+	if err != nil {
+		return nil, &domain.HttpError{
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to fetch updated room with members",
+		}
+	}
+
+	return &room, nil
 }
 
 func (ru *roomUsecase) GetAllPublicRooms(c *gin.Context) ([]model.Room, *domain.HttpError) {

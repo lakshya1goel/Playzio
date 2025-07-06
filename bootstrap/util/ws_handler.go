@@ -21,7 +21,7 @@ func UpgradeWithUserID(c *gin.Context) (uint, *websocket.Conn, bool) {
 		return 0, nil, false
 	}
 
-	userIdFloat, ok := userIdRaw.(float64)
+	userId, ok := userIdRaw.(uint)
 	if !ok {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Invalid user ID in context"})
 		return 0, nil, false
@@ -33,5 +33,5 @@ func UpgradeWithUserID(c *gin.Context) (uint, *websocket.Conn, bool) {
 		return 0, nil, false
 	}
 
-	return uint(userIdFloat), conn, true
+	return userId, conn, true
 }
