@@ -73,14 +73,14 @@ func (uc *authUseCase) HandleGoogleLogin(c *gin.Context, code string) (*dto.Auth
 			accessTokenExp := time.Now().Add(24 * time.Hour).Unix()
 			refreshTokenExp := time.Now().Add(24 * 30 * time.Hour).Unix()
 
-			accessToken, err := util.GenerateToken(resp.ID, accessTokenExp)
+			accessToken, err := util.GenerateToken(resp.ID, userInfo.Name, accessTokenExp)
 			if err != nil {
 				return nil, &domain.HttpError{
 					StatusCode: http.StatusInternalServerError,
 					Message:    "Failed to generate access token",
 				}
 			}
-			refreshToken, err := util.GenerateToken(resp.ID, refreshTokenExp)
+			refreshToken, err := util.GenerateToken(resp.ID, userInfo.Name, refreshTokenExp)
 			if err != nil {
 				return nil, &domain.HttpError{
 					StatusCode: http.StatusInternalServerError,
@@ -117,14 +117,14 @@ func (uc *authUseCase) HandleGoogleLogin(c *gin.Context, code string) (*dto.Auth
 	accessTokenExp := time.Now().Add(24 * time.Hour).Unix()
 	refreshTokenExp := time.Now().Add(24 * 30 * time.Hour).Unix()
 
-	accessToken, err := util.GenerateToken(resp.ID, accessTokenExp)
+	accessToken, err := util.GenerateToken(resp.ID, userInfo.Name, accessTokenExp)
 	if err != nil {
 		return nil, &domain.HttpError{
 			StatusCode: http.StatusInternalServerError,
 			Message:    "Failed to generate access token",
 		}
 	}
-	refreshToken, err := util.GenerateToken(resp.ID, refreshTokenExp)
+	refreshToken, err := util.GenerateToken(resp.ID, userInfo.Name, refreshTokenExp)
 	if err != nil {
 		return nil, &domain.HttpError{
 			StatusCode: http.StatusInternalServerError,
@@ -156,14 +156,14 @@ func (uc *authUseCase) Authenticate(c *gin.Context, user model.User) (*dto.AuthR
 	accessTokenExp := time.Now().Add(24 * time.Hour).Unix()
 	refreshTokenExp := time.Now().Add(24 * 30 * time.Hour).Unix()
 
-	accessToken, err := util.GenerateToken(resp.ID, accessTokenExp)
+	accessToken, err := util.GenerateToken(resp.ID, user.Name, accessTokenExp)
 	if err != nil {
 		return nil, &domain.HttpError{
 			StatusCode: http.StatusInternalServerError,
 			Message:    "Failed to generate access token",
 		}
 	}
-	refreshToken, err := util.GenerateToken(resp.ID, refreshTokenExp)
+	refreshToken, err := util.GenerateToken(resp.ID, user.Name, refreshTokenExp)
 	if err != nil {
 		return nil, &domain.HttpError{
 			StatusCode: http.StatusInternalServerError,
@@ -227,7 +227,7 @@ func (uc *authUseCase) GetAccessTokenFromRefreshToken(c *gin.Context, refreshTok
 
 	accessTokenExp := time.Now().Add(24 * time.Hour).Unix()
 
-	accessToken, err := util.GenerateToken(resp.ID, accessTokenExp)
+	accessToken, err := util.GenerateToken(resp.ID, resp.Name, accessTokenExp)
 	if err != nil {
 		return nil, &domain.HttpError{
 			StatusCode: http.StatusInternalServerError,

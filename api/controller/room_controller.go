@@ -59,7 +59,7 @@ func (rc *RoomController) JoinRoom(c *gin.Context) {
 		return
 	}
 
-	err := rc.roomUsecase.JoinRoom(c, joinCode)
+	room, err := rc.roomUsecase.JoinRoom(c, joinCode)
 
 	if err != nil {
 		c.JSON(err.StatusCode, domain.ErrorResponse{
@@ -71,6 +71,7 @@ func (rc *RoomController) JoinRoom(c *gin.Context) {
 	c.JSON(http.StatusOK, domain.SuccessResponse{
 		Success: true,
 		Message: "Room joined successfully!",
+		Data: room,
 	})
 }
 
