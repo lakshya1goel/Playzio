@@ -31,11 +31,11 @@ const (
 	Answer       = "answer"
 	Leave        = "leave"
 	Typing       = "typing"
-	Timeout      = "timeout"
 	TimerStarted = "timer_started"
 	StartGame    = "start_game"
 	NextTurn     = "next_turn"
 	GameOver     = "game_over"
 	UserJoined   = "user_joined"
 	UserLeft     = "user_left"
+	TurnEnded    = "turn_ended"
 )

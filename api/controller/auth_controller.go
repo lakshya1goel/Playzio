@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -36,6 +37,7 @@ func (ctrl *AuthController) GoogleCallback(c *gin.Context) {
 	response, err := ctrl.authUseCase.HandleGoogleLogin(c, code)
 
 	if err != nil {
+		log.Fatal("Error during Google login:", err)
 		c.JSON(err.StatusCode, domain.ErrorResponse{
 			Message: err.Message,
 		})
