@@ -37,7 +37,7 @@ func (ctrl *AuthController) GoogleCallback(c *gin.Context) {
 	response, err := ctrl.authUseCase.HandleGoogleLogin(c, code)
 
 	if err != nil {
-		log.Fatal("Error during Google login:", err)
+		log.Printf("Error during Google login: %v", err)
 		c.JSON(err.StatusCode, domain.ErrorResponse{
 			Message: err.Message,
 		})
