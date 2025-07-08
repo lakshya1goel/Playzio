@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"time"
 
@@ -45,12 +46,14 @@ func (uc *authUseCase) HandleGoogleConfig(c *gin.Context) {
 func (uc *authUseCase) HandleGoogleLogin(c *gin.Context, code string) (*dto.AuthResponse, *domain.HttpError) {
 	token, err := util.GoogleOAuthConfig.Exchange(c, code)
 	if err != nil {
+		log.Printf("Error exchanging token: %v", err)
 		return nil, domain.NewHttpError(http.StatusInternalServerError, "Failed to exchange token with Google")
 	}
 
 	client := util.GoogleOAuthConfig.Client(c, token)
 	userInfoResp, err := client.Get("https://www.googleapis.com/oauth2/v1/userinfo?alt=json")
 	if err != nil {
+		log.Printf("Error getting user info from Google: %v", err)
 		return nil, domain.NewHttpError(http.StatusInternalServerError, "Failed to get user info from Google")
 	}
 	defer userInfoResp.Body.Close()
@@ -59,12 +62,14 @@ func (uc *authUseCase) HandleGoogleLogin(c *gin.Context, code string) (*dto.Auth
 	body, _ := io.ReadAll(userInfoResp.Body)
 	err = json.Unmarshal(body, &userInfo)
 	if err != nil {
+		log.Printf("Error unmarshalling user info: %v", err)
 		return nil, domain.NewHttpError(http.StatusInternalServerError, "Failed to unmarshal user info")
 	}
 
 	resp, err := uc.userRepo.GetUserByEmail(c, userInfo.Email)
 	if err != nil {
 		if err != gorm.ErrRecordNotFound {
+			log.Printf("Error getting user by email: %v", err)
 			return nil, &domain.HttpError{
 				StatusCode: http.StatusInternalServerError,
 				Message:    "Failed to get user by email",
@@ -75,6 +80,7 @@ func (uc *authUseCase) HandleGoogleLogin(c *gin.Context, code string) (*dto.Auth
 
 			accessToken, err := util.GenerateToken(resp.ID, userInfo.Name, accessTokenExp)
 			if err != nil {
+				log.Printf("Error generating access token: %v", err)
 				return nil, &domain.HttpError{
 					StatusCode: http.StatusInternalServerError,
 					Message:    "Failed to generate access token",
@@ -82,6 +88,7 @@ func (uc *authUseCase) HandleGoogleLogin(c *gin.Context, code string) (*dto.Auth
 			}
 			refreshToken, err := util.GenerateToken(resp.ID, userInfo.Name, refreshTokenExp)
 			if err != nil {
+				log.Printf("Error generating refresh token: %v", err)
 				return nil, &domain.HttpError{
 					StatusCode: http.StatusInternalServerError,
 					Message:    "Failed to generate refresh token",
@@ -96,6 +103,7 @@ func (uc *authUseCase) HandleGoogleLogin(c *gin.Context, code string) (*dto.Auth
 
 			err = uc.userRepo.CreateUser(c, user)
 			if err != nil {
+				log.Printf("Error creating user: %v", err)
 				return nil, &domain.HttpError{
 					StatusCode: http.StatusInternalServerError,
 					Message:    "Failed to create user",
@@ -119,6 +127,7 @@ func (uc *authUseCase) HandleGoogleLogin(c *gin.Context, code string) (*dto.Auth
 
 	accessToken, err := util.GenerateToken(resp.ID, userInfo.Name, accessTokenExp)
 	if err != nil {
+		log.Printf("Error generating access token: %v", err)
 		return nil, &domain.HttpError{
 			StatusCode: http.StatusInternalServerError,
 			Message:    "Failed to generate access token",
@@ -126,6 +135,7 @@ func (uc *authUseCase) HandleGoogleLogin(c *gin.Context, code string) (*dto.Auth
 	}
 	refreshToken, err := util.GenerateToken(resp.ID, userInfo.Name, refreshTokenExp)
 	if err != nil {
+		log.Printf("Error generating refresh token: %v", err)
 		return nil, &domain.HttpError{
 			StatusCode: http.StatusInternalServerError,
 			Message:    "Failed to generate refresh token",
