@@ -72,7 +72,7 @@ func (u *gameWSUsecase) Read(c *model.GameClient) {
 			}
 			u.JoinRoom(c, msg.RoomID)
 
-		case model.Answer, model.Timeout:
+		case model.Answer:
 			gameRoomState := c.Pool.RoomsState[c.RoomID]
 			if gameRoomState == nil || !gameRoomState.Started {
 				fmt.Println("Room not found or game not started")
@@ -108,11 +108,10 @@ func (u *gameWSUsecase) Read(c *model.GameClient) {
 					},
 				})
 
-				game.StartNextTurn()
+				game.handleSuccessfulAnswer(c.UserId, answer, gameRoomState.CharSet)
 
 			} else {
 				gameRoomState.Lives[c.UserId]--
-				fmt.Printf("Invalid answer by %d: %s\n", c.UserId, answer)
 
 				u.BroadcastMessage(c, model.GameMessage{
 					Type:   model.Answer,
@@ -125,13 +124,7 @@ func (u *gameWSUsecase) Read(c *model.GameClient) {
 					},
 				})
 
-				if game.checkEndCondition() {
-					break
-				}
-
-				if gameRoomState.Lives[c.UserId] == 0 && gameRoomState.Players[gameRoomState.TurnIndex] == c.UserId {
-					game.StartNextTurn()
-				}
+				game.handleWrongAnswer(c.UserId, answer)
 			}
 
 		case model.NextTurn:

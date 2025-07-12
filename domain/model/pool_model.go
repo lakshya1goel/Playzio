@@ -193,12 +193,14 @@ func (p *GamePool) handleCountdownEnd(roomID uint) {
 	gameRoomState.Started = true
 	gameRoomState.CharSet = util.GenerateRandomString(2, 5)
 	gameRoomState.Round = 1
-	gameRoomState.TimeLimit = 12
+	gameRoomState.TimeLimit = 19
 	gameRoomState.CountdownStarted = false
+	gameRoomState.TurnIndex = 0
 
 	p.BroadcastToRoom(roomID, GameMessage{
-		Type:   StartGame,
-		RoomID: roomID,
+		CharSet: &gameRoomState.CharSet,
+		Type:    StartGame,
+		RoomID:  roomID,
 		Payload: map[string]any{
 			"message":    "Game has started",
 			"char_set":   gameRoomState.CharSet,
