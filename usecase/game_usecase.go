@@ -14,6 +14,8 @@ type GameUsecase interface {
 	endGame(winnerID uint)
 	checkEndCondition() bool
 	getFinalScores() map[string]any
+	handleSuccessfulAnswer(userID uint, answer string, newCharSet string)
+	handleWrongAnswer(userID uint, answer string)
 }
 
 type gameUsecase struct {
@@ -70,6 +72,8 @@ func (g *gameUsecase) startTurn(userID uint) {
 		g.GameRoomState.TimeLimit = 5
 	}
 
+	currentTurnIndex := g.GameRoomState.TurnIndex
+
 	g.Pool.BroadcastToRoom(g.GameRoomState.RoomID, model.GameMessage{
 		Type:   model.NextTurn,
 		RoomID: g.GameRoomState.RoomID,
@@ -81,30 +85,71 @@ func (g *gameUsecase) startTurn(userID uint) {
 		},
 	})
 
-	go func(uid uint, timeLimit int) {
+	go func(uid uint, timeLimit int, turnIndex int) {
 		timer := time.NewTimer(time.Duration(timeLimit) * time.Second)
 		defer timer.Stop()
 
 		<-timer.C
 
-		if g.GameRoomState.TurnIndex < len(g.GameRoomState.Players) &&
+		if g.GameRoomState.TurnIndex == turnIndex &&
 			g.GameRoomState.Players[g.GameRoomState.TurnIndex] == uid {
 
 			g.GameRoomState.Lives[uid]--
 
 			g.Pool.BroadcastToRoom(g.GameRoomState.RoomID, model.GameMessage{
-				Type:   model.Timeout,
+				Type:   model.TurnEnded,
 				RoomID: g.GameRoomState.RoomID,
 				UserID: uid,
 				Payload: map[string]any{
+					"reason":     "timeout",
 					"lives_left": g.GameRoomState.Lives[uid],
 					"round":      g.GameRoomState.Round,
-					"winner_id":  g.GameRoomState.WinnerID,
 				},
 			})
+
 			g.StartNextTurn()
 		}
-	}(userID, g.GameRoomState.TimeLimit)
+	}(userID, g.GameRoomState.TimeLimit, currentTurnIndex)
+}
+
+func (g *gameUsecase) handleSuccessfulAnswer(userID uint, answer string, newCharSet string) {
+	g.Pool.BroadcastToRoom(g.GameRoomState.RoomID, model.GameMessage{
+		Type:   model.TurnEnded,
+		RoomID: g.GameRoomState.RoomID,
+		UserID: userID,
+		Payload: map[string]any{
+			"reason":     "correct_answer",
+			"answer":     answer,
+			"newCharSet": newCharSet,
+			"score":      g.GameRoomState.Points[userID],
+			"round":      g.GameRoomState.Round,
+		},
+	})
+
+	g.StartNextTurn()
+}
+
+func (g *gameUsecase) handleWrongAnswer(userID uint, answer string) {
+	g.Pool.BroadcastToRoom(g.GameRoomState.RoomID, model.GameMessage{
+		Type:   model.TurnEnded,
+		RoomID: g.GameRoomState.RoomID,
+		UserID: userID,
+		Payload: map[string]any{
+			"reason":     "wrong_answer",
+			"answer":     answer,
+			"lives_left": g.GameRoomState.Lives[userID],
+			"round":      g.GameRoomState.Round,
+		},
+	})
+
+	if g.checkEndCondition() {
+		return
+	}
+
+	if g.GameRoomState.Lives[userID] == 0 &&
+		g.GameRoomState.Players[g.GameRoomState.TurnIndex] == userID {
+		g.StartNextTurn()
+	}
 }
 
 func (g *gameUsecase) endGame(winnerID uint) {
