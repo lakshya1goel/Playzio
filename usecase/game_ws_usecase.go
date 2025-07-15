@@ -5,13 +5,14 @@ import (
 
 	"github.com/lakshya1goel/Playzio/bootstrap/util"
 	"github.com/lakshya1goel/Playzio/domain/model"
+	"github.com/lakshya1goel/Playzio/websocket"
 )
 
 type GameWSUsecase interface {
-	JoinRoom(c *model.GameClient, roomID uint)
-	LeaveRoom(c *model.GameClient)
-	BroadcastMessage(c *model.GameClient, msg model.GameMessage)
-	Read(c *model.GameClient)
+	JoinRoom(c *websocket.GameClient, roomID uint)
+	LeaveRoom(c *websocket.GameClient)
+	BroadcastMessage(c *websocket.GameClient, msg model.GameMessage)
+	Read(c *websocket.GameClient)
 }
 
 type gameWSUsecase struct{}
@@ -20,7 +21,7 @@ func NewGameWSUsecase() GameWSUsecase {
 	return &gameWSUsecase{}
 }
 
-func (u *gameWSUsecase) JoinRoom(c *model.GameClient, roomID uint) {
+func (u *gameWSUsecase) JoinRoom(c *websocket.GameClient, roomID uint) {
 	c.RoomID = roomID
 	if c.Pool.RoomCount(roomID) >= 10 {
 		fmt.Println("Room is full, cannot join:", roomID)
@@ -40,17 +41,17 @@ func (u *gameWSUsecase) JoinRoom(c *model.GameClient, roomID uint) {
 	}
 }
 
-func (u *gameWSUsecase) LeaveRoom(c *model.GameClient) {
+func (u *gameWSUsecase) LeaveRoom(c *websocket.GameClient) {
 	c.Pool.Unregister <- c
 }
 
-func (u *gameWSUsecase) BroadcastMessage(c *model.GameClient, msg model.GameMessage) {
+func (u *gameWSUsecase) BroadcastMessage(c *websocket.GameClient, msg model.GameMessage) {
 	msg.UserID = c.UserId
 	msg.RoomID = c.RoomID
 	c.Pool.Broadcast <- msg
 }
 
-func (u *gameWSUsecase) Read(c *model.GameClient) {
+func (u *gameWSUsecase) Read(c *websocket.GameClient) {
 	defer func() {
 		u.LeaveRoom(c)
 		c.Conn.Close()

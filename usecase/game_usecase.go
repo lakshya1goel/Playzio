@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/lakshya1goel/Playzio/domain/model"
+	"github.com/lakshya1goel/Playzio/websocket"
 )
 
 type GameUsecase interface {
@@ -19,11 +20,11 @@ type GameUsecase interface {
 }
 
 type gameUsecase struct {
-	Pool          *model.GamePool
+	Pool          *websocket.GamePool
 	GameRoomState *model.GameRoomState
 }
 
-func NewGameUsecase(pool *model.GamePool, room *model.GameRoomState) GameUsecase {
+func NewGameUsecase(pool *websocket.GamePool, room *model.GameRoomState) GameUsecase {
 	return &gameUsecase{
 		Pool:          pool,
 		GameRoomState: room,
