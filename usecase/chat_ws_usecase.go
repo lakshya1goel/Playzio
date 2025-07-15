@@ -4,13 +4,14 @@ import (
 	"fmt"
 
 	"github.com/lakshya1goel/Playzio/domain/model"
+	"github.com/lakshya1goel/Playzio/websocket"
 )
 
 type ChatWSUsecase interface {
-	JoinRoom(c *model.ChatClient, roomID uint)
-	LeaveRoom(c *model.ChatClient)
-	BroadcastMessage(c *model.ChatClient, msg model.ChatMessage)
-	Read(c *model.ChatClient)
+	JoinRoom(c *websocket.ChatClient, roomID uint)
+	LeaveRoom(c *websocket.ChatClient)
+	BroadcastMessage(c *websocket.ChatClient, msg model.ChatMessage)
+	Read(c *websocket.ChatClient)
 }
 
 type chatWSUsecase struct{}
@@ -19,22 +20,22 @@ func NewChatWSUsecase() ChatWSUsecase {
 	return &chatWSUsecase{}
 }
 
-func (u *chatWSUsecase) JoinRoom(c *model.ChatClient, roomID uint) {
+func (u *chatWSUsecase) JoinRoom(c *websocket.ChatClient, roomID uint) {
 	c.RoomID = roomID
 	c.Pool.Register <- c
 }
 
-func (u *chatWSUsecase) LeaveRoom(c *model.ChatClient) {
+func (u *chatWSUsecase) LeaveRoom(c *websocket.ChatClient) {
 	c.Pool.Unregister <- c
 }
 
-func (u *chatWSUsecase) BroadcastMessage(c *model.ChatClient, msg model.ChatMessage) {
+func (u *chatWSUsecase) BroadcastMessage(c *websocket.ChatClient, msg model.ChatMessage) {
 	msg.Sender = c.UserId
 	msg.RoomID = c.RoomID
 	c.Pool.Broadcast <- msg
 }
 
-func (u *chatWSUsecase) Read(c *model.ChatClient) {
+func (u *chatWSUsecase) Read(c *websocket.ChatClient) {
 	defer func() {
 		u.LeaveRoom(c)
 		c.Conn.Close()
