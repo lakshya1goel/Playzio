@@ -17,4 +17,5 @@ type GameRoomState struct {
 	CountdownStarted bool
 	CountdownEndTime time.Time
 	CountdownTimer   *time.Timer
+	RoundMaxTime     int
 }

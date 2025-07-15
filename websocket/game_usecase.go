@@ -1,11 +1,10 @@
-package usecase
+package websocket
 
 import (
 	"fmt"
 	"time"
 
 	"github.com/lakshya1goel/Playzio/domain/model"
-	"github.com/lakshya1goel/Playzio/websocket"
 )
 
 type GameUsecase interface {
@@ -20,14 +19,18 @@ type GameUsecase interface {
 }
 
 type gameUsecase struct {
-	Pool          *websocket.GamePool
-	GameRoomState *model.GameRoomState
+	Pool              *GamePool
+	GameRoomState     *model.GameRoomState
+	RoundMaxTimeLimit int
+	MinTimeLimit      int
 }
 
-func NewGameUsecase(pool *websocket.GamePool, room *model.GameRoomState) GameUsecase {
+func NewGameUsecase(pool *GamePool, room *model.GameRoomState) GameUsecase {
 	return &gameUsecase{
-		Pool:          pool,
-		GameRoomState: room,
+		Pool:              pool,
+		GameRoomState:     room,
+		RoundMaxTimeLimit: 20,
+		MinTimeLimit:      5,
 	}
 }
 
@@ -68,10 +71,7 @@ func (g *gameUsecase) countAlivePlayers() int {
 }
 
 func (g *gameUsecase) startTurn(userID uint) {
-	g.GameRoomState.TimeLimit = 20 - g.GameRoomState.Round
-	if g.GameRoomState.TimeLimit < 5 {
-		g.GameRoomState.TimeLimit = 5
-	}
+	g.GameRoomState.TimeLimit = max(g.RoundMaxTimeLimit-g.GameRoomState.Round, g.MinTimeLimit)
 
 	currentTurnIndex := g.GameRoomState.TurnIndex
 
