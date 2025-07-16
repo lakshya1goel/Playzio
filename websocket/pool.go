@@ -207,8 +207,6 @@ func (p *GamePool) Read(c *GameClient) {
 			if !p.handleAnswerMessage(c, msg) {
 				continue
 			}
-		case model.NextTurn:
-			p.handleNextTurnMessage(c, msg)
 		case model.Leave:
 			p.LeaveRoom(c)
 		case model.Typing:
@@ -317,16 +315,6 @@ func (p *GamePool) handleAnswerMessage(c *GameClient, msg model.GameMessage) boo
 	return true
 }
 
-func (p *GamePool) handleNextTurnMessage(c *GameClient, msg model.GameMessage) {
-	if autoStart, ok := msg.Payload["auto_start"].(bool); ok && autoStart {
-		gameRoomState := c.Pool.RoomsState[c.RoomID]
-		if gameRoomState != nil && gameRoomState.Started {
-			game := NewGameUsecase(c.Pool, gameRoomState)
-			game.StartNextTurn()
-		}
-	}
-}
-
 func (p *GamePool) handleTypingMessage(c *GameClient, msg model.GameMessage) bool {
 	gameRoomState := c.Pool.RoomsState[c.RoomID]
 	if gameRoomState == nil {
@@ -372,13 +360,8 @@ func (p *GamePool) handleCountdownEnd(roomID uint) {
 		},
 	})
 
-	p.BroadcastToRoom(roomID, model.GameMessage{
-		Type:   model.NextTurn,
-		RoomID: roomID,
-		Payload: map[string]any{
-			"auto_start": true,
-		},
-	})
+	game := NewGameUsecase(p, gameRoomState)
+	game.StartNextTurn()
 }
 
 func (p *GamePool) GetRemainingCountdownTime(roomID uint) int {
