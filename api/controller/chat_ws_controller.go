@@ -3,16 +3,16 @@ package controller
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/lakshya1goel/Playzio/bootstrap/util"
-	"github.com/lakshya1goel/Playzio/domain/model"
 	"github.com/lakshya1goel/Playzio/usecase"
+	"github.com/lakshya1goel/Playzio/websocket"
 )
 
 type ChatWSController struct {
 	usecase usecase.ChatWSUsecase
-	pool    *model.ChatPool
+	pool    *websocket.ChatPool
 }
 
-func NewChatWSController(pool *model.ChatPool, wsUsecase usecase.ChatWSUsecase) *ChatWSController {
+func NewChatWSController(pool *websocket.ChatPool, wsUsecase usecase.ChatWSUsecase) *ChatWSController {
 	return &ChatWSController{
 		usecase: wsUsecase,
 		pool:    pool,
@@ -25,8 +25,8 @@ func (wsc *ChatWSController) HandleWebSocket(c *gin.Context) {
 		return
 	}
 
-	client := &model.ChatClient{
-		BaseClient: model.BaseClient{
+	client := &websocket.ChatClient{
+		BaseClient: websocket.BaseClient{
 			Conn:   conn,
 			UserId: userId,
 		},
