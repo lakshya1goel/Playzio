@@ -105,6 +105,8 @@ func (g *gameUsecase) startTurn(userID uint) {
 					"reason":     "timeout",
 					"lives_left": g.GameRoomState.Lives[uid],
 					"round":      g.GameRoomState.Round,
+					"char_set":   g.GameRoomState.CharSet,
+					"score":      g.GameRoomState.Points[uid],
 				},
 			})
 
@@ -120,10 +122,10 @@ func (g *gameUsecase) handleSuccessfulAnswer(userID uint, answer string, newChar
 		UserID: userID,
 		Payload: map[string]any{
 			"reason":     "correct_answer",
-			"answer":     answer,
-			"newCharSet": newCharSet,
-			"score":      g.GameRoomState.Points[userID],
+			"lives_left": g.GameRoomState.Lives[userID],
 			"round":      g.GameRoomState.Round,
+			"char_set":   newCharSet,
+			"score":      g.GameRoomState.Points[userID],
 		},
 	})
 
@@ -137,9 +139,10 @@ func (g *gameUsecase) handleWrongAnswer(userID uint, answer string) {
 		UserID: userID,
 		Payload: map[string]any{
 			"reason":     "wrong_answer",
-			"answer":     answer,
 			"lives_left": g.GameRoomState.Lives[userID],
 			"round":      g.GameRoomState.Round,
+			"char_set":   g.GameRoomState.CharSet,
+			"score":      g.GameRoomState.Points[userID],
 		},
 	})
 
