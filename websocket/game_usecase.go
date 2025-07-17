@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/lakshya1goel/Playzio/bootstrap/util"
 	"github.com/lakshya1goel/Playzio/domain/model"
 )
 
@@ -74,13 +75,14 @@ func (g *gameUsecase) startTurn(userID uint) {
 	g.GameRoomState.TimeLimit = max(g.RoundMaxTimeLimit-g.GameRoomState.Round, g.MinTimeLimit)
 
 	currentTurnIndex := g.GameRoomState.TurnIndex
+	newCharSet := util.GenerateRandomWord()
 
 	g.Pool.BroadcastToRoom(g.GameRoomState.RoomID, model.GameMessage{
 		Type:   model.NextTurn,
 		RoomID: g.GameRoomState.RoomID,
 		Payload: map[string]any{
 			"user_id":    userID,
-			"char_set":   g.GameRoomState.CharSet,
+			"char_set":   newCharSet,
 			"time_limit": g.GameRoomState.TimeLimit,
 			"round":      g.GameRoomState.Round,
 		},
@@ -105,6 +107,7 @@ func (g *gameUsecase) startTurn(userID uint) {
 					"reason":     "timeout",
 					"lives_left": g.GameRoomState.Lives[uid],
 					"round":      g.GameRoomState.Round,
+					"score":      g.GameRoomState.Points[uid],
 				},
 			})
 
@@ -120,10 +123,9 @@ func (g *gameUsecase) handleSuccessfulAnswer(userID uint, answer string, newChar
 		UserID: userID,
 		Payload: map[string]any{
 			"reason":     "correct_answer",
-			"answer":     answer,
-			"newCharSet": newCharSet,
-			"score":      g.GameRoomState.Points[userID],
+			"lives_left": g.GameRoomState.Lives[userID],
 			"round":      g.GameRoomState.Round,
+			"score":      g.GameRoomState.Points[userID],
 		},
 	})
 
@@ -137,9 +139,9 @@ func (g *gameUsecase) handleWrongAnswer(userID uint, answer string) {
 		UserID: userID,
 		Payload: map[string]any{
 			"reason":     "wrong_answer",
-			"answer":     answer,
 			"lives_left": g.GameRoomState.Lives[userID],
 			"round":      g.GameRoomState.Round,
+			"score":      g.GameRoomState.Points[userID],
 		},
 	})
 
