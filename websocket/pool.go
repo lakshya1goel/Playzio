@@ -297,8 +297,6 @@ func (p *GamePool) handleAnswerMessage(c *GameClient, msg model.GameMessage) boo
 		game.handleSuccessfulAnswer(c.UserId, answer, gameRoomState.CharSet)
 
 	} else {
-		gameRoomState.Lives[c.UserId]--
-
 		p.BroadcastMessage(c, model.GameMessage{
 			Type:   model.Answer,
 			RoomID: c.RoomID,
