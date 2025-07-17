@@ -279,7 +279,7 @@ func (p *GamePool) handleAnswerMessage(c *GameClient, msg model.GameMessage) boo
 	game := NewGameUsecase(c.Pool, gameRoomState)
 
 	if util.ContainsSubstring(answer, gameRoomState.CharSet) && util.IsWordValid(answer) {
-		gameRoomState.CharSet = util.GenerateRandomString(2, 5)
+		gameRoomState.CharSet = util.GenerateRandomWord()
 		gameRoomState.Points[c.UserId]++
 
 		p.BroadcastMessage(c, model.GameMessage{
@@ -342,7 +342,7 @@ func (p *GamePool) handleCountdownEnd(roomID uint) {
 	}
 
 	gameRoomState.Started = true
-	gameRoomState.CharSet = util.GenerateRandomString(2, 5)
+	gameRoomState.CharSet = util.GenerateRandomWord()
 	gameRoomState.Round = 1
 	gameRoomState.TimeLimit = 19
 	gameRoomState.CountdownStarted = false
