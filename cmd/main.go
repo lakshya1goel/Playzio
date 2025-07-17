@@ -44,6 +44,11 @@ func main() {
 	chatController := controller.NewChatWSController(app.ChatPool, usecase.NewChatWSUsecase())
 	roomController := controller.NewRoomController()
 
+        router.GET("/", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"message": "Welcome to Playzio",
+		})
+	})
 	apiRouter := router.Group("/api")
 	{
 		routes.AuthRoutes(apiRouter, authController)
