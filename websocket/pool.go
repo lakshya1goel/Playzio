@@ -185,9 +185,12 @@ func (p *GamePool) Start() {
 
 func (p *GamePool) Read(c *GameClient) {
 	defer func() {
+		c.StopPingPong()
 		p.LeaveRoom(c)
 		c.Conn.Close()
 	}()
+
+	c.StartPingPong()
 
 	for {
 		var msg model.GameMessage
@@ -212,6 +215,14 @@ func (p *GamePool) Read(c *GameClient) {
 		case model.Typing:
 			if !p.handleTypingMessage(c, msg) {
 				continue
+			}
+		case model.Ping:
+			if timestamp, ok := msg.Payload["timestamp"].(float64); ok {
+				c.SendPong(int64(timestamp))
+			}
+		case model.Pong:
+			if timestamp, ok := msg.Payload["timestamp"].(float64); ok {
+				c.HandlePong(int64(timestamp))
 			}
 		default:
 			fmt.Println("Unknown game message type:", msg.Type)

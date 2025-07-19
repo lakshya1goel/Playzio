@@ -38,4 +38,6 @@ const (
 	UserJoined   = "user_joined"
 	UserLeft     = "user_left"
 	TurnEnded    = "turn_ended"
+	Ping         = "ping"
+	Pong         = "pong"
 )
