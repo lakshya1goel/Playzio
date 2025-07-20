@@ -83,24 +83,26 @@ type PongPayload struct {
 }
 
 type GameOverPayload struct {
-	RoomID   uint   `json:"room_id"`
-	WinnerID uint   `json:"winner_id"`
-	Message  string `json:"message"`
+	RoomID      uint            `json:"room_id"`
+	WinnerID    uint            `json:"winner_id"`
+	FinalScores map[string]any `json:"final_scores"`
 }
 
 type NextTurnPayload struct {
 	RoomID    uint   `json:"room_id"`
 	UserID    uint   `json:"user_id"`
-	UserName  string `json:"user_name"`
 	CharSet   string `json:"char_set"`
 	TimeLimit int    `json:"time_limit"`
+	Round     int    `json:"round"`
 }
 
 type TurnEndedPayload struct {
-	RoomID   uint   `json:"room_id"`
-	UserID   uint   `json:"user_id"`
-	UserName string `json:"user_name"`
-	Message  string `json:"message"`
+	RoomID    uint   `json:"room_id"`
+	UserID    uint   `json:"user_id"`
+	Reason    string `json:"reason"`
+	LivesLeft int    `json:"lives_left"`
+	Round     int    `json:"round"`
+	Score     int    `json:"score"`
 }
 
 func NewJoinMessage(roomID uint) GameMessage {
@@ -213,38 +215,40 @@ func NewPongMessage(timestamp int64) GameMessage {
 	}
 }
 
-func NewGameOverMessage(roomID, winnerID uint, message string) GameMessage {
+func NewGameOverMessage(roomID, winnerID uint, finalScores map[string]any) GameMessage {
 	return GameMessage{
 		Type: GameOver,
 		Payload: GameOverPayload{
 			RoomID:   roomID,
 			WinnerID: winnerID,
-			Message:  message,
+			FinalScores: finalScores,
 		},
 	}
 }
 
-func NewNextTurnMessage(roomID, userID uint, userName, charSet string, timeLimit int) GameMessage {
+func NewNextTurnMessage(roomID, userID uint, charSet string, timeLimit, round int) GameMessage {
 	return GameMessage{
 		Type: NextTurn,
 		Payload: NextTurnPayload{
 			RoomID:    roomID,
 			UserID:    userID,
-			UserName:  userName,
 			CharSet:   charSet,
 			TimeLimit: timeLimit,
+			Round:     round,
 		},
 	}
 }
 
-func NewTurnEndedMessage(roomID, userID uint, userName, message string) GameMessage {
+func NewTurnEndedMessage(roomID, userID uint, reason string, livesLeft, round, score int) GameMessage {
 	return GameMessage{
 		Type: TurnEnded,
 		Payload: TurnEndedPayload{
-			RoomID:   roomID,
-			UserID:   userID,
-			UserName: userName,
-			Message:  message,
+			RoomID:    roomID,
+			UserID:    userID,
+			Reason:    reason,
+			LivesLeft: livesLeft,
+			Round:     round,
+			Score:     score,
 		},
 	}
 }
