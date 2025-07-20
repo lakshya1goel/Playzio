@@ -30,8 +30,8 @@ func NewGameUsecase(pool *GamePool, room *model.GameRoomState) GameUsecase {
 	return &gameUsecase{
 		Pool:              pool,
 		GameRoomState:     room,
-		RoundMaxTimeLimit: 20,
-		MinTimeLimit:      5,
+		RoundMaxTimeLimit: DefaultRoundTimeLimit,
+		MinTimeLimit:      DefaultMinTimeLimit,
 	}
 }
 
@@ -89,7 +89,8 @@ func (g *gameUsecase) startTurn(userID uint) {
 			g.GameRoomState.Players[g.GameRoomState.TurnIndex] == uid {
 
 			g.GameRoomState.Lives[uid]--
-			g.Pool.BroadcastToRoom(g.GameRoomState.RoomID, model.NewTurnEndedMessage(g.GameRoomState.RoomID, uid, "timeout", g.GameRoomState.Lives[uid], g.GameRoomState.Round, g.GameRoomState.Points[uid]))
+			turnEndedMsg := model.NewTurnEndedMessage(g.GameRoomState.RoomID, uid, "timeout", g.GameRoomState.Lives[uid], g.GameRoomState.Round, g.GameRoomState.Points[uid])
+			g.Pool.BroadcastToRoom(g.GameRoomState.RoomID, turnEndedMsg)
 
 			g.StartNextTurn()
 		}
@@ -97,13 +98,15 @@ func (g *gameUsecase) startTurn(userID uint) {
 }
 
 func (g *gameUsecase) handleSuccessfulAnswer(userID uint, answer string, newCharSet string) {
-	g.Pool.BroadcastToRoom(g.GameRoomState.RoomID, model.NewTurnEndedMessage(g.GameRoomState.RoomID, userID, "correct_answer", g.GameRoomState.Lives[userID], g.GameRoomState.Round, g.GameRoomState.Points[userID]))
+	turnEndedMsg := model.NewTurnEndedMessage(g.GameRoomState.RoomID, userID, "correct_answer", g.GameRoomState.Lives[userID], g.GameRoomState.Round, g.GameRoomState.Points[userID])
+	g.Pool.BroadcastToRoom(g.GameRoomState.RoomID, turnEndedMsg)
 
 	g.StartNextTurn()
 }
 
 func (g *gameUsecase) handleWrongAnswer(userID uint, answer string) {
-	g.Pool.BroadcastToRoom(g.GameRoomState.RoomID, model.NewTurnEndedMessage(g.GameRoomState.RoomID, userID, "wrong_answer", g.GameRoomState.Lives[userID], g.GameRoomState.Round, g.GameRoomState.Points[userID]))
+	turnEndedMsg := model.NewTurnEndedMessage(g.GameRoomState.RoomID, userID, "wrong_answer", g.GameRoomState.Lives[userID], g.GameRoomState.Round, g.GameRoomState.Points[userID])
+	g.Pool.BroadcastToRoom(g.GameRoomState.RoomID, turnEndedMsg)
 
 	if g.checkEndCondition() {
 		return
@@ -119,7 +122,8 @@ func (g *gameUsecase) endGame(winnerID uint) {
 	g.GameRoomState.Started = false
 	g.GameRoomState.WinnerID = winnerID
 
-	g.Pool.BroadcastToRoom(g.GameRoomState.RoomID, model.NewGameOverMessage(g.GameRoomState.RoomID, winnerID, g.getFinalScores()))
+	gameOverMsg := model.NewGameOverMessage(g.GameRoomState.RoomID, winnerID, g.getFinalScores())
+	g.Pool.BroadcastToRoom(g.GameRoomState.RoomID, gameOverMsg)
 }
 
 func (g *gameUsecase) checkEndCondition() bool {

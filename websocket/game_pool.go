@@ -9,6 +9,17 @@ import (
 	"github.com/lakshya1goel/Playzio/domain/model"
 )
 
+const (
+	DefaultPlayerLives    = 3
+	DefaultPlayerPoints   = 0
+	DefaultMaxPlayers     = 10
+	DefaultCountdownTime  = 2 * time.Minute
+	DefaultCountdownSecs  = 120
+	DefaultGameTimeLimit  = 19
+	DefaultRoundTimeLimit = 20
+	DefaultMinTimeLimit   = 5
+)
+
 type GamePool struct {
 	*BasePool[*GameClient]
 	RoomsState map[uint]*model.GameRoomState
@@ -33,14 +44,16 @@ func (p *GamePool) Start() {
 				gameRoomState := p.initializeGameRoomState(client.RoomID, client.UserId)
 				p.RoomsState[client.RoomID] = gameRoomState
 				p.startRoomCountdown(client.RoomID, gameRoomState)
-				p.BroadcastToRoom(client.RoomID, model.NewUserJoinedMessage(client.UserId, client.UserName, "Room created and joined", client.RoomID))
+				userJoinedMsg := model.NewUserJoinedMessage(client.UserId, client.UserName, "Room created and joined", client.RoomID)
+				p.BroadcastToRoom(client.RoomID, userJoinedMsg)
 			} else {
 				p.addPlayerToRoom(client, p.RoomsState[client.RoomID])
 			}
 			p.stateMu.Unlock()
 
 		case client := <-p.Unregister:
-			p.BroadcastToRoom(client.RoomID, model.NewUserLeftMessage(client.UserId, client.UserName, "User left the room", client.RoomID))
+			userLeftMsg := model.NewUserLeftMessage(client.UserId, client.UserName, "User left the room", client.RoomID)
+			p.BroadcastToRoom(client.RoomID, userLeftMsg)
 
 			util.UnregisterClient(&p.mu, p.Rooms, client.RoomID, client.UserId)
 			p.cleanupEmptyRoom(client.RoomID)
@@ -65,8 +78,8 @@ func (p *GamePool) initializeGameRoomState(roomID uint, creatorID uint) *model.G
 		RoomID:           roomID,
 		CreatedBy:        creatorID,
 		Players:          []uint{creatorID},
-		Lives:            map[uint]int{creatorID: 3},
-		Points:           map[uint]int{creatorID: 0},
+		Lives:            map[uint]int{creatorID: DefaultPlayerLives},
+		Points:           map[uint]int{creatorID: DefaultPlayerPoints},
 		TurnIndex:        0,
 		CharSet:          "",
 		Started:          false,
@@ -74,15 +87,15 @@ func (p *GamePool) initializeGameRoomState(roomID uint, creatorID uint) *model.G
 		TimeLimit:        0,
 		WinnerID:         0,
 		CountdownStarted: true,
-		CountdownEndTime: time.Now().Add(2 * time.Minute),
+		CountdownEndTime: time.Now().Add(DefaultCountdownTime),
 	}
 }
 
 func (p *GamePool) startRoomCountdown(roomID uint, gameRoomState *model.GameRoomState) {
-	gameRoomState.CountdownTimer = time.AfterFunc(2*time.Minute, func() {
+	gameRoomState.CountdownTimer = time.AfterFunc(DefaultCountdownTime, func() {
 		p.handleCountdownEnd(roomID)
 	})
-	p.BroadcastTimerStarted(roomID, 120)
+	p.BroadcastTimerStarted(roomID, DefaultCountdownSecs)
 }
 
 func (p *GamePool) handleCountdownEnd(roomID uint) {
@@ -90,18 +103,19 @@ func (p *GamePool) handleCountdownEnd(roomID uint) {
 	defer p.stateMu.Unlock()
 
 	gameRoomState := p.RoomsState[roomID]
-	if gameRoomState == nil || gameRoomState.Started {
+	if !p.canStartGame(gameRoomState) {
 		return
 	}
 
 	gameRoomState.Started = true
 	gameRoomState.CharSet = util.GenerateRandomWord()
 	gameRoomState.Round = 1
-	gameRoomState.TimeLimit = 19
+	gameRoomState.TimeLimit = DefaultGameTimeLimit
 	gameRoomState.CountdownStarted = false
 	gameRoomState.TurnIndex = 0
 
-	p.BroadcastToRoom(roomID, model.NewStartGameMessage(roomID, "Game has started", gameRoomState.CharSet, gameRoomState.Round, gameRoomState.TimeLimit))
+	startGameMsg := model.NewStartGameMessage(roomID, "Game has started", gameRoomState.CharSet, gameRoomState.Round, gameRoomState.TimeLimit)
+	p.BroadcastToRoom(roomID, startGameMsg)
 
 	game := NewGameUsecase(p, gameRoomState)
 	game.StartNextTurn()
@@ -115,16 +129,17 @@ func (p *GamePool) BroadcastTimerStarted(roomID uint, duration int) {
 		return
 	}
 	for _, client := range clients {
-		go client.WriteJSON(model.NewTimerStartedMessage(roomID, duration))
+		timerStartedMsg := model.NewTimerStartedMessage(roomID, duration)
+		go client.WriteJSON(timerStartedMsg)
 	}
 	p.mu.RUnlock()
 }
 
 func (p *GamePool) addPlayerToRoom(client *GameClient, gameRoomState *model.GameRoomState) {
-	if _, exists := gameRoomState.Lives[client.UserId]; !exists {
+	if !p.isPlayerInRoom(client.UserId, gameRoomState) {
 		gameRoomState.Players = append(gameRoomState.Players, client.UserId)
-		gameRoomState.Lives[client.UserId] = 3
-		gameRoomState.Points[client.UserId] = 0
+		gameRoomState.Lives[client.UserId] = DefaultPlayerLives
+		gameRoomState.Points[client.UserId] = DefaultPlayerPoints
 
 		if gameRoomState.CountdownStarted && !gameRoomState.Started {
 			remainingTime := int(time.Until(gameRoomState.CountdownEndTime).Seconds())
@@ -133,7 +148,8 @@ func (p *GamePool) addPlayerToRoom(client *GameClient, gameRoomState *model.Game
 			}
 		}
 
-		p.BroadcastToRoom(client.RoomID, model.NewUserJoinedMessage(client.UserId, client.UserName, "User joined the room", client.RoomID))
+		userJoinedMsg := model.NewUserJoinedMessage(client.UserId, client.UserName, "User joined the room", client.RoomID)
+		p.BroadcastToRoom(client.RoomID, userJoinedMsg)
 	}
 }
 
@@ -211,9 +227,26 @@ func (p *GamePool) handleJoinMessage(c *GameClient, msg model.GameMessage) bool 
 	return true
 }
 
+func (p *GamePool) isRoomFull(roomID uint) bool {
+	return p.RoomCount(roomID) >= DefaultMaxPlayers
+}
+
+func (p *GamePool) isPlayerInRoom(playerID uint, gameRoomState *model.GameRoomState) bool {
+	_, exists := gameRoomState.Lives[playerID]
+	return exists
+}
+
+func (p *GamePool) canStartGame(gameRoomState *model.GameRoomState) bool {
+	return gameRoomState != nil && !gameRoomState.Started
+}
+
+func (p *GamePool) isGameActive(gameRoomState *model.GameRoomState) bool {
+	return gameRoomState != nil && gameRoomState.Started
+}
+
 func (p *GamePool) JoinRoom(c *GameClient, roomID uint) {
 	c.RoomID = roomID
-	if p.RoomCount(roomID) >= 10 {
+	if p.isRoomFull(roomID) {
 		fmt.Println("Room is full, cannot join:", roomID)
 		return
 	}
@@ -221,7 +254,8 @@ func (p *GamePool) JoinRoom(c *GameClient, roomID uint) {
 
 	remainingTime := p.GetRemainingCountdownTime(roomID)
 	if remainingTime > 0 {
-		c.WriteJSON(model.NewTimerStartedMessage(roomID, remainingTime))
+		timerStartedMsg := model.NewTimerStartedMessage(roomID, remainingTime)
+		c.WriteJSON(timerStartedMsg)
 	}
 }
 
@@ -251,7 +285,7 @@ func (p *GamePool) GetRemainingCountdownTime(roomID uint) int {
 //handleAnswerMessage handles the answer message
 func (p *GamePool) handleAnswerMessage(c *GameClient, msg model.GameMessage) bool {
 	gameRoomState := p.RoomsState[c.RoomID]
-	if gameRoomState == nil || !gameRoomState.Started {
+	if !p.isGameActive(gameRoomState) {
 		fmt.Println("Room not found or game not started")
 		return false
 	}
@@ -349,7 +383,6 @@ func (p *GamePool) handlePongMessage(c *GameClient, msg model.GameMessage) {
 		}
 	}
 }
-
 
 //BroadcastMessage broadcasts a message to the room
 func (p *GamePool) BroadcastMessage(c *GameClient, msg model.GameMessage) {
