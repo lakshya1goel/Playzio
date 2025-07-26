@@ -26,6 +26,10 @@ func (u *chatWSUsecase) JoinRoom(c *websocket.ChatClient, roomID uint) {
 }
 
 func (u *chatWSUsecase) LeaveRoom(c *websocket.ChatClient) {
+	if c.RoomID == 0 {
+		fmt.Println("Skipping LeaveRoom: client has invalid RoomID")
+		return
+	}
 	c.Pool.Unregister <- c
 }
 

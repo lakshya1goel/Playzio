@@ -21,14 +21,6 @@ const (
 	Pong         = "pong"
 )
 
-type JoinPayload struct {
-	RoomID uint `json:"room_id"`
-}
-
-type AnswerPayload struct {
-	Answer string `json:"answer"`
-}
-
 type AnswerResponsePayload struct {
 	Correct    bool   `json:"correct"`
 	Answer     string `json:"answer"`
@@ -75,7 +67,6 @@ type UserLeftPayload struct {
 type PingPayload struct {
 	Timestamp int64 `json:"timestamp"`
 	PingID    int   `json:"ping_id,omitempty"`
-	Debug     bool  `json:"debug,omitempty"`
 }
 
 type PongPayload struct {
@@ -103,24 +94,6 @@ type TurnEndedPayload struct {
 	LivesLeft int    `json:"lives_left"`
 	Round     int    `json:"round"`
 	Score     int    `json:"score"`
-}
-
-func NewJoinMessage(roomID uint) GameMessage {
-	return GameMessage{
-		Type: Join,
-		Payload: JoinPayload{
-			RoomID: roomID,
-		},
-	}
-}
-
-func NewAnswerMessage(answer string) GameMessage {
-	return GameMessage{
-		Type: Answer,
-		Payload: AnswerPayload{
-			Answer: answer,
-		},
-	}
 }
 
 func NewAnswerResponseMessage(correct bool, answer string, roomID, userID uint, newCharSet string, score, lives int) GameMessage {
