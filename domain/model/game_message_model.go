@@ -44,7 +44,6 @@ type TimerStartedPayload struct {
 
 type StartGamePayload struct {
 	RoomID    uint   `json:"room_id"`
-	Message   string `json:"message"`
 	CharSet   string `json:"char_set"`
 	Round     int    `json:"round"`
 	TimeLimit int    `json:"time_limit"`
@@ -53,14 +52,12 @@ type StartGamePayload struct {
 type UserJoinedPayload struct {
 	UserID   uint   `json:"user_id"`
 	UserName string `json:"user_name"`
-	Message  string `json:"message"`
 	RoomID   uint   `json:"room_id"`
 }
 
 type UserLeftPayload struct {
 	UserID   uint   `json:"user_id"`
 	UserName string `json:"user_name"`
-	Message  string `json:"message"`
 	RoomID   uint   `json:"room_id"`
 }
 
@@ -74,8 +71,8 @@ type PongPayload struct {
 }
 
 type GameOverPayload struct {
-	RoomID      uint            `json:"room_id"`
-	WinnerID    uint            `json:"winner_id"`
+	RoomID      uint           `json:"room_id"`
+	WinnerID    uint           `json:"winner_id"`
 	FinalScores map[string]any `json:"final_scores"`
 }
 
@@ -132,12 +129,11 @@ func NewTimerStartedMessage(roomID uint, duration int) GameMessage {
 	}
 }
 
-func NewStartGameMessage(roomID uint, message, charSet string, round, timeLimit int) GameMessage {
+func NewStartGameMessage(roomID uint, charSet string, round, timeLimit int) GameMessage {
 	return GameMessage{
 		Type: StartGame,
 		Payload: StartGamePayload{
 			RoomID:    roomID,
-			Message:   message,
 			CharSet:   charSet,
 			Round:     round,
 			TimeLimit: timeLimit,
@@ -145,25 +141,23 @@ func NewStartGameMessage(roomID uint, message, charSet string, round, timeLimit 
 	}
 }
 
-func NewUserJoinedMessage(userID uint, userName, message string, roomID uint) GameMessage {
+func NewUserJoinedMessage(userID uint, userName string, roomID uint) GameMessage {
 	return GameMessage{
 		Type: UserJoined,
 		Payload: UserJoinedPayload{
 			UserID:   userID,
 			UserName: userName,
-			Message:  message,
 			RoomID:   roomID,
 		},
 	}
 }
 
-func NewUserLeftMessage(userID uint, userName, message string, roomID uint) GameMessage {
+func NewUserLeftMessage(userID uint, userName string, roomID uint) GameMessage {
 	return GameMessage{
 		Type: UserLeft,
 		Payload: UserLeftPayload{
 			UserID:   userID,
 			UserName: userName,
-			Message:  message,
 			RoomID:   roomID,
 		},
 	}
@@ -192,8 +186,8 @@ func NewGameOverMessage(roomID, winnerID uint, finalScores map[string]any) GameM
 	return GameMessage{
 		Type: GameOver,
 		Payload: GameOverPayload{
-			RoomID:   roomID,
-			WinnerID: winnerID,
+			RoomID:      roomID,
+			WinnerID:    winnerID,
 			FinalScores: finalScores,
 		},
 	}

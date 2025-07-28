@@ -94,38 +94,40 @@ func (p *GamePool) Read(c *GameClient) {
 }
 
 func (p *GamePool) handleRegister(client *GameClient) {
-	util.RegisterClient(&p.mu, p.Rooms, client.RoomID, client.UserId, client)
+	// fmt.Println("Handling register message for client", client.UserId, "in room", client.RoomID)
+	// util.RegisterClient(&p.mu, p.Rooms, client.RoomID, client.UserId, client)
 
-	p.stateMu.Lock()
-	if _, ok := p.RoomsState[client.RoomID]; !ok {
-		gameRoomState := &model.GameRoomState{
-			RoomID:           client.RoomID,
-			CreatedBy:        client.UserId,
-			Players:          []uint{client.UserId},
-			Lives:            map[uint]int{client.UserId: DefaultPlayerLives},
-			Points:           map[uint]int{client.UserId: DefaultPlayerPoints},
-			TurnIndex:        0,
-			CharSet:          "",
-			Started:          false,
-			Round:            0,
-			TimeLimit:        0,
-			WinnerID:         0,
-			CountdownStarted: true,
-			CountdownEndTime: time.Now().Add(DefaultCountdownTime),
-		}
-		p.RoomsState[client.RoomID] = gameRoomState
-		p.GameUsecases[client.RoomID] = NewGameUsecase(p, gameRoomState)
-		p.GameUsecases[client.RoomID].startRoomCountdown(client.RoomID, gameRoomState)
-		userJoinedMsg := model.NewUserJoinedMessage(client.UserId, client.UserName, "Room created and joined", client.RoomID)
-		p.GameUsecases[client.RoomID].BroadcastToRoom(client.RoomID, userJoinedMsg)
-	} else {
-		p.GameUsecases[client.RoomID].addPlayerToRoom(client, p.RoomsState[client.RoomID])
-	}
-	p.stateMu.Unlock()
+	// p.stateMu.Lock()
+	// if _, ok := p.RoomsState[client.RoomID]; !ok {
+	// 	gameRoomState := &model.GameRoomState{
+	// 		RoomID:           client.RoomID,
+	// 		CreatedBy:        client.UserId,
+	// 		Players:          []uint{client.UserId},
+	// 		Lives:            map[uint]int{client.UserId: DefaultPlayerLives},
+	// 		Points:           map[uint]int{client.UserId: DefaultPlayerPoints},
+	// 		TurnIndex:        0,
+	// 		CharSet:          "",
+	// 		Started:          false,
+	// 		Round:            0,
+	// 		TimeLimit:        0,
+	// 		WinnerID:         0,
+	// 		CountdownStarted: true,
+	// 		CountdownEndTime: time.Now().Add(DefaultCountdownTime),
+	// 	}
+	// 	p.RoomsState[client.RoomID] = gameRoomState
+	// 	p.GameUsecases[client.RoomID] = NewGameUsecase(p, gameRoomState)
+	// 	p.GameUsecases[client.RoomID].startRoomCountdown(client.RoomID, gameRoomState)
+	// 	userJoinedMsg := model.NewUserJoinedMessage(client.UserId, client.UserName, client.RoomID)
+	// 	p.GameUsecases[client.RoomID].BroadcastToRoom(client.RoomID, userJoinedMsg)
+	// } else {
+	// 	p.GameUsecases[client.RoomID].addPlayerToRoom(client, p.RoomsState[client.RoomID])
+	// }
+	// p.stateMu.Unlock()
 }
 
 func (p *GamePool) handleUnregister(client *GameClient) {
-	userLeftMsg := model.NewUserLeftMessage(client.UserId, client.UserName, "User left the room", client.RoomID)
+	fmt.Println("Unregistering client", client.UserId, "from room", client.RoomID)
+	userLeftMsg := model.NewUserLeftMessage(client.UserId, client.UserName, client.RoomID)
 	p.GameUsecases[client.RoomID].BroadcastToRoom(client.RoomID, userLeftMsg)
 
 	util.UnregisterClient(&p.mu, p.Rooms, client.RoomID, client.UserId)
@@ -146,12 +148,38 @@ func (p *GamePool) handleBroadcast(raw interface{}) {
 }
 
 func (p *GamePool) handleJoinMessage(c *GameClient, msg model.GameMessage) bool {
-	roomID, ok := p.GameUsecases[c.RoomID].extractUintFromPayload(msg, "room_id")
-	if !ok || roomID == 0 {
-		fmt.Println("Invalid Room ID received")
-		return false
+	roomIDFloat := msg.Payload.(map[string]any)["room_id"].(float64)
+	roomID := uint(roomIDFloat)
+	c.RoomID = roomID
+	
+	p.stateMu.Lock()
+	if _, ok := p.RoomsState[roomID]; !ok {
+		gameRoomState := &model.GameRoomState{
+			RoomID:           roomID,
+			CreatedBy:        c.UserId,
+			Players:          []uint{c.UserId},
+			Lives:            map[uint]int{c.UserId: DefaultPlayerLives},
+			Points:           map[uint]int{c.UserId: DefaultPlayerPoints},
+			TurnIndex:        0,
+			CharSet:          "",
+			Started:          false,
+			Round:            0,
+			TimeLimit:        0,
+			WinnerID:         0,
+			CountdownStarted: true,
+			CountdownEndTime: time.Now().Add(DefaultCountdownTime),
+		}
+		p.RoomsState[roomID] = gameRoomState
+		p.GameUsecases[roomID] = NewGameUsecase(p, gameRoomState)
+		p.GameUsecases[roomID].startRoomCountdown(roomID, gameRoomState)
+	} else {
+		p.GameUsecases[roomID].addPlayerToRoom(c, p.RoomsState[roomID])
 	}
-	p.GameUsecases[c.RoomID].JoinRoom(c, roomID)
+	p.stateMu.Unlock()
+	util.RegisterClient(&p.mu, p.Rooms, roomID, c.UserId, c)
+	p.GameUsecases[roomID].JoinRoom(c, roomID)
+	userJoinedMsg := model.NewUserJoinedMessage(c.UserId, c.UserName, roomID)
+	p.GameUsecases[roomID].BroadcastToRoom(roomID, userJoinedMsg)
 	return true
 }
 

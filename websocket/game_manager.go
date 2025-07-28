@@ -210,7 +210,7 @@ func (g *gameUsecase) handleCountdownEnd(roomID uint) {
 	gameRoomState.CountdownStarted = false
 	gameRoomState.TurnIndex = 0
 
-	startGameMsg := model.NewStartGameMessage(roomID, "Game has started", gameRoomState.CharSet, gameRoomState.Round, gameRoomState.TimeLimit)
+	startGameMsg := model.NewStartGameMessage(roomID, gameRoomState.CharSet, gameRoomState.Round, gameRoomState.TimeLimit)
 	g.BroadcastToRoom(roomID, startGameMsg)
 
 	game := NewGameUsecase(g.Pool, gameRoomState)
@@ -244,7 +244,7 @@ func (g *gameUsecase) addPlayerToRoom(client *GameClient, gameRoomState *model.G
 			}
 		}
 
-		userJoinedMsg := model.NewUserJoinedMessage(client.UserId, client.UserName, "User joined the room", client.RoomID)
+		userJoinedMsg := model.NewUserJoinedMessage(client.UserId, client.UserName, client.RoomID)
 		g.BroadcastToRoom(client.RoomID, userJoinedMsg)
 	}
 }
@@ -287,7 +287,7 @@ func (g *gameUsecase) isGameActive(gameRoomState *model.GameRoomState) bool {
 }
 
 func (g *gameUsecase) JoinRoom(c *GameClient, roomID uint) {
-	c.RoomID = roomID
+	// c.RoomID = roomID
 	if g.isRoomFull(roomID) {
 		fmt.Println("Room is full, cannot join:", roomID)
 		return
@@ -343,8 +343,7 @@ func (g *gameUsecase) processCorrectAnswer(c *GameClient, answer string, gameRoo
 	)
 	g.BroadcastMessage(c, responseMsg)
 
-	game := NewGameUsecase(c.Pool, gameRoomState)
-	game.handleSuccessfulAnswer(c.UserId, answer, gameRoomState.CharSet)
+	g.handleSuccessfulAnswer(c.UserId, answer, gameRoomState.CharSet)
 }
 
 func (g *gameUsecase) processWrongAnswer(c *GameClient, answer string, gameRoomState *model.GameRoomState) {
@@ -359,8 +358,7 @@ func (g *gameUsecase) processWrongAnswer(c *GameClient, answer string, gameRoomS
 	)
 	g.BroadcastMessage(c, responseMsg)
 
-	game := NewGameUsecase(c.Pool, gameRoomState)
-	game.handleWrongAnswer(c.UserId, answer)
+	g.handleWrongAnswer(c.UserId, answer)
 }
 
 func (g *gameUsecase) BroadcastMessage(c *GameClient, msg model.GameMessage) {
@@ -387,11 +385,13 @@ func (g *gameUsecase) extractStringFromPayload(msg model.GameMessage, key string
 func (g *gameUsecase) extractUintFromPayload(msg model.GameMessage, key string) (uint, bool) {
 	payload, ok := msg.Payload.(map[string]any)
 	if !ok {
+		fmt.Println("Invalid payload type")
 		return 0, false
 	}
 
 	value, ok := payload[key]
 	if !ok {
+		fmt.Println("Key not found in payload")
 		return 0, false
 	}
 
@@ -403,6 +403,7 @@ func (g *gameUsecase) extractUintFromPayload(msg model.GameMessage, key string) 
 	case int:
 		return uint(v), true
 	default:
+		fmt.Println("Invalid value type")
 		return 0, false
 	}
 }
