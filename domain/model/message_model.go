@@ -20,9 +20,6 @@ const (
 
 type GameMessage struct {
 	Type    string         `json:"type"`
-	RoomID  uint           `json:"room_id"`
-	CharSet *string        `json:"char_set"`
-	UserID  uint           `json:"user_id"`
 	Payload map[string]any `json:"payload,omitempty"`
 }
 
