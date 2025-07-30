@@ -32,19 +32,19 @@ func (bc *BaseClient) WriteJSON(v any) error {
 func (bc *BaseClient) SendPing() error {
 	bc.PingCount++
 	message := NewGameMessage().
-		setMessageType(model.Ping).
-		withTimestamp(time.Now().Unix()).
-		withPingId(bc.PingCount).
-		build()
+		SetMessageType(model.Ping).
+		WithTimestamp(time.Now().Unix()).
+		WithPingId(bc.PingCount).
+		Build()
 
 	return bc.WriteJSON(message)
 }
 
 func (bc *BaseClient) SendPong(timestamp int64) error {
 	message := NewGameMessage().
-		setMessageType(model.Pong).
-		withTimestamp(timestamp).
-		build()
+		SetMessageType(model.Pong).
+		WithTimestamp(timestamp).
+		Build()
 
 	return bc.WriteJSON(message)
 }

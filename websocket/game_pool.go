@@ -54,11 +54,11 @@ func (p *GamePool) Start() {
 				p.BroadcastTimerStarted(client.RoomID, 120)
 
 				message := NewGameMessage().
-					setMessageType(model.UserJoined).
-					withUserId(client.UserId).
-					withRoomId(client.RoomID).
-					withUserName(client.UserName).
-					build()
+					SetMessageType(model.UserJoined).
+					WithUserId(client.UserId).
+					WithRoomId(client.RoomID).
+					WithUserName(client.UserName).
+					Build()
 
 				p.BroadcastToRoom(client.RoomID, message)
 			} else {
@@ -76,11 +76,11 @@ func (p *GamePool) Start() {
 					}
 
 					message := NewGameMessage().
-						setMessageType(model.UserJoined).
-						withUserId(client.UserId).
-						withRoomId(client.RoomID).
-						withUserName(client.UserName).
-						build()
+						SetMessageType(model.UserJoined).
+						WithUserId(client.UserId).
+						WithRoomId(client.RoomID).
+						WithUserName(client.UserName).
+						Build()
 
 					p.BroadcastToRoom(client.RoomID, message)
 				}
@@ -89,11 +89,11 @@ func (p *GamePool) Start() {
 
 		case client := <-p.Unregister:
 			message := NewGameMessage().
-				setMessageType(model.UserLeft).
-				withUserId(client.UserId).
-				withRoomId(client.RoomID).
-				withUserName(client.UserName).
-				build()
+				SetMessageType(model.UserLeft).
+				WithUserId(client.UserId).
+				WithRoomId(client.RoomID).
+				WithUserName(client.UserName).
+				Build()
 
 			p.BroadcastToRoom(client.RoomID, message)
 
@@ -180,10 +180,10 @@ func (p *GamePool) JoinRoom(c *GameClient, roomID uint) {
 	remainingTime := p.GetRemainingCountdownTime(roomID)
 	if remainingTime > 0 {
 		message := NewGameMessage().
-			setMessageType(model.TimerStarted).
-			withRoomId(roomID).
-			withDuration(remainingTime).
-			build()
+			SetMessageType(model.TimerStarted).
+			WithRoomId(roomID).
+			WithDuration(remainingTime).
+			Build()
 
 		c.WriteJSON(message)
 	}
@@ -200,11 +200,31 @@ func (p *GamePool) BroadcastMessage(c *GameClient, msg model.GameMessage) {
 }
 
 func (p *GamePool) handleJoinMessage(c *GameClient, msg model.GameMessage) bool {
-	if msg.Payload["room_id"].(uint) == 0 {
+	roomIDRaw, exists := msg.Payload["room_id"]
+	if !exists {
+		fmt.Println("Room ID not found in payload")
+		return false
+	}
+	
+	var roomID uint
+	switch v := roomIDRaw.(type) {
+	case float64:
+		roomID = uint(v)
+	case uint:
+		roomID = v
+	case int:
+		roomID = uint(v)
+	default:
+		fmt.Println("Invalid room ID type:", v)
+		return false
+	}
+	
+	if roomID == 0 {
 		fmt.Println("Invalid Room ID received")
 		return false
 	}
-	p.JoinRoom(c, msg.Payload["room_id"].(uint))
+	
+	p.JoinRoom(c, roomID)
 	return true
 }
 
@@ -233,15 +253,15 @@ func (p *GamePool) handleAnswerMessage(c *GameClient, msg model.GameMessage) boo
 		gameRoomState.Points[c.UserId]++
 
 		message := NewGameMessage().
-			setMessageType(model.Answer).
-			withRoomId(c.RoomID).
-			withUserId(c.UserId).
-			withCorrect(true).
-			withAnswer(answer).
-			withCharSet(gameRoomState.CharSet).
-			withScore(gameRoomState.Points[c.UserId]).
-			withLives(gameRoomState.Lives[c.UserId]).
-			build()
+			SetMessageType(model.Answer).
+			WithRoomId(c.RoomID).
+			WithUserId(c.UserId).
+			WithCorrect(true).
+			WithAnswer(answer).
+			WithCharSet(gameRoomState.CharSet).
+			WithScore(gameRoomState.Points[c.UserId]).
+			WithLives(gameRoomState.Lives[c.UserId]).
+			Build()
 
 		p.BroadcastMessage(c, message)
 
@@ -249,15 +269,15 @@ func (p *GamePool) handleAnswerMessage(c *GameClient, msg model.GameMessage) boo
 
 	} else {
 		message := NewGameMessage().
-			setMessageType(model.Answer).
-			withRoomId(c.RoomID).
-			withUserId(c.UserId).
-			withCorrect(false).
-			withAnswer(answer).
-			withCharSet(gameRoomState.CharSet).
-			withScore(gameRoomState.Points[c.UserId]).
-			withLives(gameRoomState.Lives[c.UserId]).
-			build()
+			SetMessageType(model.Answer).
+			WithRoomId(c.RoomID).
+			WithUserId(c.UserId).
+			WithCorrect(false).
+			WithAnswer(answer).
+			WithCharSet(gameRoomState.CharSet).
+			WithScore(gameRoomState.Points[c.UserId]).
+			WithLives(gameRoomState.Lives[c.UserId]).
+			Build()
 
 		p.BroadcastMessage(c, message)
 
@@ -273,11 +293,11 @@ func (p *GamePool) handleTypingMessage(c *GameClient, msg model.GameMessage) boo
 	}
 
 	message := NewGameMessage().
-		setMessageType(model.Typing).
-		withRoomId(c.RoomID).
-		withUserId(c.UserId).
-		withText(msg.Payload["text"].(string)).
-		build()
+		SetMessageType(model.Typing).
+		WithRoomId(c.RoomID).
+		WithUserId(c.UserId).
+		WithText(msg.Payload["text"].(string)).
+		Build()
 
 	p.BroadcastMessage(c, message)
 	return true
@@ -300,12 +320,12 @@ func (p *GamePool) handleCountdownEnd(roomID uint) {
 	gameRoomState.TurnIndex = 0
 
 	message := NewGameMessage().
-		setMessageType(model.StartGame).
-		withRoomId(roomID).
-		withCharSet(gameRoomState.CharSet).
-		withRound(gameRoomState.Round).
-		withTimeLimit(gameRoomState.TimeLimit).
-		build()
+		SetMessageType(model.StartGame).
+		WithRoomId(roomID).
+		WithCharSet(gameRoomState.CharSet).
+		WithRound(gameRoomState.Round).
+		WithTimeLimit(gameRoomState.TimeLimit).
+		Build()
 
 	p.BroadcastToRoom(roomID, message)
 
@@ -338,10 +358,10 @@ func (p *GamePool) BroadcastTimerStarted(roomID uint, duration int) {
 	}
 	for _, client := range clients {
 		message := NewGameMessage().
-			setMessageType(model.TimerStarted).
-			withRoomId(roomID).
-			withDuration(duration).
-			build()
+			SetMessageType(model.TimerStarted).
+			WithRoomId(roomID).
+			WithDuration(duration).
+			Build()
 
 		go client.WriteJSON(message)
 	}
