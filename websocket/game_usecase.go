@@ -78,14 +78,14 @@ func (g *gameUsecase) startTurn(userID uint) {
 	newCharSet := util.GenerateRandomWord()
 
 	message := NewGameMessage().
-		setMessageType(model.NextTurn).
-		withRoomId(g.GameRoomState.RoomID).
-		withUserId(userID).
-		withCharSet(newCharSet).
-		withTimeLimit(g.GameRoomState.TimeLimit).
-		withRound(g.GameRoomState.Round).
-		withLives(g.GameRoomState.Lives[userID]).
-		build()
+		SetMessageType(model.NextTurn).
+		WithRoomId(g.GameRoomState.RoomID).
+		WithUserId(userID).
+		WithCharSet(newCharSet).
+		WithTimeLimit(g.GameRoomState.TimeLimit).
+		WithRound(g.GameRoomState.Round).
+		WithLives(g.GameRoomState.Lives[userID]).
+		Build()
 
 	g.Pool.BroadcastToRoom(g.GameRoomState.RoomID, message)
 
@@ -101,14 +101,14 @@ func (g *gameUsecase) startTurn(userID uint) {
 			g.GameRoomState.Lives[uid]--
 
 			message := NewGameMessage().
-				setMessageType(model.TurnEnded).
-				withRoomId(g.GameRoomState.RoomID).
-				withUserId(uid).
-				withReason("timeout").
-				withLives(g.GameRoomState.Lives[uid]).
-				withRound(g.GameRoomState.Round).
-				withScore(g.GameRoomState.Points[uid]).
-				build()
+				SetMessageType(model.TurnEnded).
+				WithRoomId(g.GameRoomState.RoomID).
+				WithUserId(uid).
+				WithReason("timeout").
+				WithLives(g.GameRoomState.Lives[uid]).
+				WithRound(g.GameRoomState.Round).
+				WithScore(g.GameRoomState.Points[uid]).
+				Build()
 
 			g.Pool.BroadcastToRoom(g.GameRoomState.RoomID, message)
 
@@ -119,14 +119,14 @@ func (g *gameUsecase) startTurn(userID uint) {
 
 func (g *gameUsecase) handleSuccessfulAnswer(userID uint, answer string, newCharSet string) {
 	message := NewGameMessage().
-		setMessageType(model.TurnEnded).
-		withRoomId(g.GameRoomState.RoomID).
-		withUserId(userID).
-		withReason("correct_answer").
-		withLives(g.GameRoomState.Lives[userID]).
-		withRound(g.GameRoomState.Round).
-		withScore(g.GameRoomState.Points[userID]).
-		build()
+		SetMessageType(model.TurnEnded).
+		WithRoomId(g.GameRoomState.RoomID).
+		WithUserId(userID).
+		WithReason("correct_answer").
+		WithLives(g.GameRoomState.Lives[userID]).
+		WithRound(g.GameRoomState.Round).
+		WithScore(g.GameRoomState.Points[userID]).
+		Build()
 
 	g.Pool.BroadcastToRoom(g.GameRoomState.RoomID, message)
 
@@ -135,14 +135,14 @@ func (g *gameUsecase) handleSuccessfulAnswer(userID uint, answer string, newChar
 
 func (g *gameUsecase) handleWrongAnswer(userID uint, answer string) {
 	message := NewGameMessage().
-		setMessageType(model.TurnEnded).
-		withRoomId(g.GameRoomState.RoomID).
-		withUserId(userID).
-		withReason("wrong_answer").
-		withLives(g.GameRoomState.Lives[userID]).
-		withRound(g.GameRoomState.Round).
-		withScore(g.GameRoomState.Points[userID]).
-		build()
+		SetMessageType(model.TurnEnded).
+		WithRoomId(g.GameRoomState.RoomID).
+		WithUserId(userID).
+		WithReason("wrong_answer").
+		WithLives(g.GameRoomState.Lives[userID]).
+		WithRound(g.GameRoomState.Round).
+		WithScore(g.GameRoomState.Points[userID]).
+		Build()
 
 	g.Pool.BroadcastToRoom(g.GameRoomState.RoomID, message)
 
@@ -161,11 +161,11 @@ func (g *gameUsecase) endGame(winnerID uint) {
 	g.GameRoomState.WinnerID = winnerID
 
 	message := NewGameMessage().
-		setMessageType(model.GameOver).
-		withRoomId(g.GameRoomState.RoomID).
-		withWinnerId(winnerID).
-		withFinalScores(g.getFinalScores()).
-		build()
+		SetMessageType(model.GameOver).
+		WithRoomId(g.GameRoomState.RoomID).
+		WithWinnerId(winnerID).
+		WithFinalScores(g.getFinalScores()).
+		Build()
 
 	g.Pool.BroadcastToRoom(g.GameRoomState.RoomID, message)
 }
