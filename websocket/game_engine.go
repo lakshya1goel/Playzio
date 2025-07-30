@@ -77,16 +77,17 @@ func (g *gameUsecase) startTurn(userID uint) {
 	currentTurnIndex := g.GameRoomState.TurnIndex
 	newCharSet := util.GenerateRandomWord()
 
-	g.Pool.BroadcastToRoom(g.GameRoomState.RoomID, model.GameMessage{
-		Type:   model.NextTurn,
-		RoomID: g.GameRoomState.RoomID,
-		Payload: map[string]any{
-			"user_id":    userID,
-			"char_set":   newCharSet,
-			"time_limit": g.GameRoomState.TimeLimit,
-			"round":      g.GameRoomState.Round,
-		},
-	})
+	message := NewGameMessage().
+		SetMessageType(model.NextTurn).
+		WithRoomId(g.GameRoomState.RoomID).
+		WithUserId(userID).
+		WithCharSet(newCharSet).
+		WithTimeLimit(g.GameRoomState.TimeLimit).
+		WithRound(g.GameRoomState.Round).
+		WithLives(g.GameRoomState.Lives[userID]).
+		Build()
+
+	g.Pool.BroadcastToRoom(g.GameRoomState.RoomID, message)
 
 	go func(uid uint, timeLimit int, turnIndex int) {
 		timer := time.NewTimer(time.Duration(timeLimit) * time.Second)
@@ -99,17 +100,17 @@ func (g *gameUsecase) startTurn(userID uint) {
 
 			g.GameRoomState.Lives[uid]--
 
-			g.Pool.BroadcastToRoom(g.GameRoomState.RoomID, model.GameMessage{
-				Type:   model.TurnEnded,
-				RoomID: g.GameRoomState.RoomID,
-				UserID: uid,
-				Payload: map[string]any{
-					"reason":     "timeout",
-					"lives_left": g.GameRoomState.Lives[uid],
-					"round":      g.GameRoomState.Round,
-					"score":      g.GameRoomState.Points[uid],
-				},
-			})
+			message := NewGameMessage().
+				SetMessageType(model.TurnEnded).
+				WithRoomId(g.GameRoomState.RoomID).
+				WithUserId(uid).
+				WithReason("timeout").
+				WithLives(g.GameRoomState.Lives[uid]).
+				WithRound(g.GameRoomState.Round).
+				WithScore(g.GameRoomState.Points[uid]).
+				Build()
+
+			g.Pool.BroadcastToRoom(g.GameRoomState.RoomID, message)
 
 			g.StartNextTurn()
 		}
@@ -117,33 +118,33 @@ func (g *gameUsecase) startTurn(userID uint) {
 }
 
 func (g *gameUsecase) handleSuccessfulAnswer(userID uint, answer string, newCharSet string) {
-	g.Pool.BroadcastToRoom(g.GameRoomState.RoomID, model.GameMessage{
-		Type:   model.TurnEnded,
-		RoomID: g.GameRoomState.RoomID,
-		UserID: userID,
-		Payload: map[string]any{
-			"reason":     "correct_answer",
-			"lives_left": g.GameRoomState.Lives[userID],
-			"round":      g.GameRoomState.Round,
-			"score":      g.GameRoomState.Points[userID],
-		},
-	})
+	message := NewGameMessage().
+		SetMessageType(model.TurnEnded).
+		WithRoomId(g.GameRoomState.RoomID).
+		WithUserId(userID).
+		WithReason("correct_answer").
+		WithLives(g.GameRoomState.Lives[userID]).
+		WithRound(g.GameRoomState.Round).
+		WithScore(g.GameRoomState.Points[userID]).
+		Build()
+
+	g.Pool.BroadcastToRoom(g.GameRoomState.RoomID, message)
 
 	g.StartNextTurn()
 }
 
 func (g *gameUsecase) handleWrongAnswer(userID uint, answer string) {
-	g.Pool.BroadcastToRoom(g.GameRoomState.RoomID, model.GameMessage{
-		Type:   model.TurnEnded,
-		RoomID: g.GameRoomState.RoomID,
-		UserID: userID,
-		Payload: map[string]any{
-			"reason":     "wrong_answer",
-			"lives_left": g.GameRoomState.Lives[userID],
-			"round":      g.GameRoomState.Round,
-			"score":      g.GameRoomState.Points[userID],
-		},
-	})
+	message := NewGameMessage().
+		SetMessageType(model.TurnEnded).
+		WithRoomId(g.GameRoomState.RoomID).
+		WithUserId(userID).
+		WithReason("wrong_answer").
+		WithLives(g.GameRoomState.Lives[userID]).
+		WithRound(g.GameRoomState.Round).
+		WithScore(g.GameRoomState.Points[userID]).
+		Build()
+
+	g.Pool.BroadcastToRoom(g.GameRoomState.RoomID, message)
 
 	if g.checkEndCondition() {
 		return
@@ -159,14 +160,14 @@ func (g *gameUsecase) endGame(winnerID uint) {
 	g.GameRoomState.Started = false
 	g.GameRoomState.WinnerID = winnerID
 
-	g.Pool.BroadcastToRoom(g.GameRoomState.RoomID, model.GameMessage{
-		Type:   model.GameOver,
-		RoomID: g.GameRoomState.RoomID,
-		Payload: map[string]any{
-			"winner_id":    winnerID,
-			"final_scores": g.getFinalScores(),
-		},
-	})
+	message := NewGameMessage().
+		SetMessageType(model.GameOver).
+		WithRoomId(g.GameRoomState.RoomID).
+		WithWinnerId(winnerID).
+		WithFinalScores(g.getFinalScores()).
+		Build()
+
+	g.Pool.BroadcastToRoom(g.GameRoomState.RoomID, message)
 }
 
 func (g *gameUsecase) checkEndCondition() bool {

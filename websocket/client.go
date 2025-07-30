@@ -31,22 +31,22 @@ func (bc *BaseClient) WriteJSON(v any) error {
 
 func (bc *BaseClient) SendPing() error {
 	bc.PingCount++
-	return bc.WriteJSON(model.GameMessage{
-		Type: model.Ping,
-		Payload: map[string]any{
-			"timestamp": time.Now().Unix(),
-			"ping_id":   bc.PingCount,
-		},
-	})
+	message := NewGameMessage().
+		SetMessageType(model.Ping).
+		WithTimestamp(time.Now().Unix()).
+		WithPingId(bc.PingCount).
+		Build()
+
+	return bc.WriteJSON(message)
 }
 
 func (bc *BaseClient) SendPong(timestamp int64) error {
-	return bc.WriteJSON(model.GameMessage{
-		Type: model.Pong,
-		Payload: map[string]any{
-			"timestamp": timestamp,
-		},
-	})
+	message := NewGameMessage().
+		SetMessageType(model.Pong).
+		WithTimestamp(timestamp).
+		Build()
+
+	return bc.WriteJSON(message)
 }
 
 func (bc *BaseClient) StartPingPong() {
