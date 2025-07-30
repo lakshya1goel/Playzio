@@ -11,82 +11,27 @@ import (
 
 type GamePool struct {
 	*BasePool[*GameClient]
-	RoomsState map[uint]*model.GameRoomState
-	stateMu    sync.RWMutex
+	RoomsState       map[uint]*model.GameRoomState
+	stateMu          sync.RWMutex
+	gameStateManager GameStateManager
+	gameTimerManager GameTimerManager
 }
 
 func NewGamePool() *GamePool {
-	return &GamePool{
+	pool := &GamePool{
 		BasePool:   NewBasePool[*GameClient](),
 		RoomsState: make(map[uint]*model.GameRoomState),
 	}
+	pool.gameStateManager = NewGameStateManager()
+	pool.gameTimerManager = NewGameTimerManager(pool)
+	return pool
 }
 
 func (p *GamePool) Start() {
 	for {
 		select {
 		case client := <-p.Register:
-			util.RegisterClient(&p.mu, p.Rooms, client.RoomID, client.UserId, client)
-
-			p.stateMu.Lock()
-			if _, ok := p.RoomsState[client.RoomID]; !ok {
-				gameRoomState := &model.GameRoomState{
-					RoomID:           client.RoomID,
-					CreatedBy:        client.UserId,
-					Players:          []uint{client.UserId},
-					Lives:            map[uint]int{client.UserId: 3},
-					Points:           map[uint]int{client.UserId: 0},
-					TurnIndex:        0,
-					CharSet:          "",
-					Started:          false,
-					Round:            0,
-					TimeLimit:        0,
-					WinnerID:         0,
-					CountdownStarted: true,
-					CountdownEndTime: time.Now().Add(2 * time.Minute),
-				}
-				p.RoomsState[client.RoomID] = gameRoomState
-
-				gameRoomState.CountdownTimer = time.AfterFunc(2*time.Minute, func() {
-					p.handleCountdownEnd(client.RoomID)
-				})
-
-				p.BroadcastTimerStarted(client.RoomID, 120)
-
-				message := NewGameMessage().
-					SetMessageType(model.UserJoined).
-					WithUserId(client.UserId).
-					WithRoomId(client.RoomID).
-					WithUserName(client.UserName).
-					Build()
-
-				p.BroadcastToRoom(client.RoomID, message)
-			} else {
-				gameRoomState := p.RoomsState[client.RoomID]
-				if _, exists := gameRoomState.Lives[client.UserId]; !exists {
-					gameRoomState.Players = append(gameRoomState.Players, client.UserId)
-					gameRoomState.Lives[client.UserId] = 3
-					gameRoomState.Points[client.UserId] = 0
-
-					if gameRoomState.CountdownStarted && !gameRoomState.Started {
-						remainingTime := int(time.Until(gameRoomState.CountdownEndTime).Seconds())
-						if remainingTime > 0 {
-							p.BroadcastTimerStarted(client.RoomID, remainingTime)
-						}
-					}
-
-					message := NewGameMessage().
-						SetMessageType(model.UserJoined).
-						WithUserId(client.UserId).
-						WithRoomId(client.RoomID).
-						WithUserName(client.UserName).
-						Build()
-
-					p.BroadcastToRoom(client.RoomID, message)
-				}
-			}
-			p.stateMu.Unlock()
-
+			p.handleClientRegister(client)
 		case client := <-p.Unregister:
 			message := NewGameMessage().
 				SetMessageType(model.UserLeft).
@@ -120,6 +65,32 @@ func (p *GamePool) Start() {
 			p.mu.RUnlock()
 		}
 	}
+}
+
+func (p *GamePool) handleClientRegister(client *GameClient) {
+	util.RegisterClient(&p.mu, p.Rooms, client.RoomID, client.UserId, client)
+
+	roomState := p.gameStateManager.GetRoomState(client.RoomID)
+	if roomState == nil {
+		p.gameStateManager.CreateRoomState(client.RoomID, client.UserId)
+		p.gameTimerManager.StartCountdown(client.RoomID, 2*time.Minute)
+	} else {
+		if p.gameStateManager.AddPlayer(client.RoomID, client.UserId) {
+			remainingTime := p.gameTimerManager.GetRemainingCountdownTime(client.RoomID)
+			if remainingTime > 0 {
+				p.BroadcastTimerStarted(client.RoomID, remainingTime)
+			}
+		}
+	}
+
+	message := NewGameMessage().
+		SetMessageType(model.UserJoined).
+		WithUserId(client.UserId).
+		WithRoomId(client.RoomID).
+		WithUserName(client.UserName).
+		Build()
+
+	p.BroadcastToRoom(client.RoomID, message)
 }
 
 func (p *GamePool) Read(c *GameClient) {
@@ -205,7 +176,7 @@ func (p *GamePool) handleJoinMessage(c *GameClient, msg model.GameMessage) bool 
 		fmt.Println("Room ID not found in payload")
 		return false
 	}
-	
+
 	var roomID uint
 	switch v := roomIDRaw.(type) {
 	case float64:
@@ -218,12 +189,12 @@ func (p *GamePool) handleJoinMessage(c *GameClient, msg model.GameMessage) bool 
 		fmt.Println("Invalid room ID type:", v)
 		return false
 	}
-	
+
 	if roomID == 0 {
 		fmt.Println("Invalid Room ID received")
 		return false
 	}
-	
+
 	p.JoinRoom(c, roomID)
 	return true
 }
