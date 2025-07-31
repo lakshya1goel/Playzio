@@ -33,7 +33,9 @@ func (p *GamePool) Start() {
 		case client := <-p.Unregister:
 			p.handleClientUnregister(client)
 		case raw := <-p.Broadcast:
-			p.handleBroadcast(raw)
+			if !p.handleBroadcast(raw) {
+				continue
+			}
 		}
 	}
 }
@@ -82,15 +84,15 @@ func (p *GamePool) handleClientUnregister(client *GameClient) {
 	}
 }
 
-func (p *GamePool) handleBroadcast(raw interface{}) {
+func (p *GamePool) handleBroadcast(raw interface{}) bool {
 	msg, ok := raw.(model.GameMessage)
 	if !ok {
-		return
+		return false
 	}
 
 	roomID, err := p.gameMessageHandler.ExtractRoomID(msg)
 	if err != nil {
-		return
+		return false
 	}
 
 	p.mu.RLock()
@@ -99,6 +101,8 @@ func (p *GamePool) handleBroadcast(raw interface{}) {
 		go client.WriteJSON(msg)
 	}
 	p.mu.RUnlock()
+	
+	return true
 }
 
 func (p *GamePool) Read(c *GameClient) {
