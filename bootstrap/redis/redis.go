@@ -41,7 +41,8 @@ func ConnectRedis(host, port, password string, db int) error {
 	return nil
 }
 
-func (r *Redis) Publish(channel string, message model.ChatMessage) error {
+func (r *Redis) PublishToRoom(roomID uint, message model.ChatMessage) error {
+	channel := fmt.Sprintf("room:%d", roomID)
 	messageJSON, err := json.Marshal(message)
 	if err != nil {
 		fmt.Println("Error marshalling message: ", err)
@@ -56,7 +57,8 @@ func (r *Redis) Publish(channel string, message model.ChatMessage) error {
 	return nil
 }
 
-func (r *Redis) Subscribe(channel string, messageHandler func(model.ChatMessage)) error {
+func (r *Redis) SubscribeToRoom(roomID uint, messageHandler func(model.ChatMessage)) error {
+	channel := fmt.Sprintf("room:%d", roomID)
 	pubsub := r.client.Subscribe(context.Background(), channel)
 	r.pubsub = pubsub
 
@@ -80,7 +82,8 @@ func (r *Redis) Subscribe(channel string, messageHandler func(model.ChatMessage)
 	return nil
 }
 
-func (r *Redis) Unsubscribe(channel string) error {
+func (r *Redis) UnsubscribeFromRoom(roomID uint) error {
+	channel := fmt.Sprintf("room:%d", roomID)
 	if r.pubsub != nil {
 		if err := r.pubsub.Unsubscribe(context.Background(), channel); err != nil {
 			fmt.Println("Error unsubscribing from channel: ", err)
