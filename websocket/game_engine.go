@@ -8,7 +8,7 @@ import (
 	"github.com/lakshya1goel/Playzio/domain/model"
 )
 
-type GameUsecase interface {
+type GameEngine interface {
 	StartNextTurn()
 	countAlivePlayers() int
 	startTurn(userID uint)
@@ -19,15 +19,15 @@ type GameUsecase interface {
 	handleWrongAnswer(userID uint, answer string)
 }
 
-type gameUsecase struct {
+type gameEngine struct {
 	Pool              *GamePool
 	GameRoomState     *model.GameRoomState
 	RoundMaxTimeLimit int
 	MinTimeLimit      int
 }
 
-func NewGameUsecase(pool *GamePool, room *model.GameRoomState) GameUsecase {
-	return &gameUsecase{
+func NewGameEngine(pool *GamePool, room *model.GameRoomState) GameEngine {
+	return &gameEngine{
 		Pool:              pool,
 		GameRoomState:     room,
 		RoundMaxTimeLimit: 20,
@@ -35,7 +35,7 @@ func NewGameUsecase(pool *GamePool, room *model.GameRoomState) GameUsecase {
 	}
 }
 
-func (g *gameUsecase) StartNextTurn() {
+func (g *gameEngine) StartNextTurn() {
 	if !g.GameRoomState.Started {
 		return
 	}
@@ -61,7 +61,7 @@ func (g *gameUsecase) StartNextTurn() {
 	}
 }
 
-func (g *gameUsecase) countAlivePlayers() int {
+func (g *gameEngine) countAlivePlayers() int {
 	count := 0
 	for _, life := range g.GameRoomState.Lives {
 		if life > 0 {
@@ -71,7 +71,7 @@ func (g *gameUsecase) countAlivePlayers() int {
 	return count
 }
 
-func (g *gameUsecase) startTurn(userID uint) {
+func (g *gameEngine) startTurn(userID uint) {
 	g.GameRoomState.TimeLimit = max(g.RoundMaxTimeLimit-g.GameRoomState.Round, g.MinTimeLimit)
 
 	currentTurnIndex := g.GameRoomState.TurnIndex
@@ -117,7 +117,7 @@ func (g *gameUsecase) startTurn(userID uint) {
 	}(userID, g.GameRoomState.TimeLimit, currentTurnIndex)
 }
 
-func (g *gameUsecase) handleSuccessfulAnswer(userID uint, answer string, newCharSet string) {
+func (g *gameEngine) handleSuccessfulAnswer(userID uint, answer string, newCharSet string) {
 	message := NewGameMessage().
 		SetMessageType(model.TurnEnded).
 		WithRoomId(g.GameRoomState.RoomID).
@@ -133,7 +133,7 @@ func (g *gameUsecase) handleSuccessfulAnswer(userID uint, answer string, newChar
 	g.StartNextTurn()
 }
 
-func (g *gameUsecase) handleWrongAnswer(userID uint, answer string) {
+func (g *gameEngine) handleWrongAnswer(userID uint, answer string) {
 	message := NewGameMessage().
 		SetMessageType(model.TurnEnded).
 		WithRoomId(g.GameRoomState.RoomID).
@@ -156,7 +156,7 @@ func (g *gameUsecase) handleWrongAnswer(userID uint, answer string) {
 	}
 }
 
-func (g *gameUsecase) endGame(winnerID uint) {
+func (g *gameEngine) endGame(winnerID uint) {
 	g.GameRoomState.Started = false
 	g.GameRoomState.WinnerID = winnerID
 
@@ -170,7 +170,7 @@ func (g *gameUsecase) endGame(winnerID uint) {
 	g.Pool.BroadcastToRoom(g.GameRoomState.RoomID, message)
 }
 
-func (g *gameUsecase) checkEndCondition() bool {
+func (g *gameEngine) checkEndCondition() bool {
 	aliveCount := 0
 	var lastAlivePlayer uint
 	var highestScorePlayer uint
@@ -201,7 +201,7 @@ func (g *gameUsecase) checkEndCondition() bool {
 	return false
 }
 
-func (g *gameUsecase) getFinalScores() map[string]any {
+func (g *gameEngine) getFinalScores() map[string]any {
 	scores := make(map[string]any)
 	for uid, points := range g.GameRoomState.Points {
 		scores[fmt.Sprintf("user_%d", uid)] = map[string]any{

@@ -205,7 +205,7 @@ func (p *GamePool) handleCountdownEnd(roomID uint) {
 
 	p.BroadcastToRoom(roomID, message)
 
-	game := NewGameUsecase(p, gameRoomState)
+	game := NewGameEngine(p, gameRoomState)
 	game.StartNextTurn()
 }
 

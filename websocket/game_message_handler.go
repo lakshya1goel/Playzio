@@ -48,7 +48,7 @@ func (h *gameMessageHandler) HandleAnswer(c *GameClient, msg model.GameMessage) 
 		return false
 	}
 
-	game := NewGameUsecase(h.pool, gameRoomState)
+	game := NewGameEngine(h.pool, gameRoomState)
 
 	if util.ContainsSubstring(answer, gameRoomState.CharSet) && util.IsWordValid(answer) {
 		h.handleCorrectAnswer(c, gameRoomState, answer, game)
@@ -94,7 +94,7 @@ func (h *gameMessageHandler) ExtractRoomID(msg model.GameMessage) (uint, error) 
 	}
 }
 
-func (h *gameMessageHandler) handleCorrectAnswer(c *GameClient, state *model.GameRoomState, answer string, game GameUsecase) {
+func (h *gameMessageHandler) handleCorrectAnswer(c *GameClient, state *model.GameRoomState, answer string, game GameEngine) {
 	state.CharSet = util.GenerateRandomWord()
 	state.Points[c.UserId]++
 
@@ -113,7 +113,7 @@ func (h *gameMessageHandler) handleCorrectAnswer(c *GameClient, state *model.Gam
 	game.handleSuccessfulAnswer(c.UserId, answer, state.CharSet)
 }
 
-func (h *gameMessageHandler) handleWrongAnswer(c *GameClient, state *model.GameRoomState, answer string, game GameUsecase) {
+func (h *gameMessageHandler) handleWrongAnswer(c *GameClient, state *model.GameRoomState, answer string, game GameEngine) {
 	message := NewGameMessage().
 		SetMessageType(model.Answer).
 		WithRoomId(c.RoomID).

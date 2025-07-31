@@ -11,7 +11,7 @@ import (
 	"github.com/lakshya1goel/Playzio/bootstrap"
 	"github.com/lakshya1goel/Playzio/bootstrap/database"
 	"github.com/lakshya1goel/Playzio/bootstrap/util"
-	"github.com/lakshya1goel/Playzio/usecase"
+	"github.com/lakshya1goel/Playzio/websocket"
 	"github.com/markbates/goth"
 	"github.com/markbates/goth/providers/google"
 )
@@ -41,10 +41,10 @@ func main() {
 
 	authController := controller.NewAuthController()
 	gameController := controller.NewGameWSController(app.GamePool)
-	chatController := controller.NewChatWSController(app.ChatPool, usecase.NewChatWSUsecase())
+	chatController := controller.NewChatWSController(app.ChatPool, websocket.NewChatHandler())
 	roomController := controller.NewRoomController()
 
-        router.GET("/", func(c *gin.Context) {
+	router.GET("/", func(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"message": "Welcome to Playzio",
 		})
