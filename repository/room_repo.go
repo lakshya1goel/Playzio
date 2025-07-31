@@ -103,7 +103,7 @@ func (r *roomRepository) DeleteRoom(c *gin.Context, roomID uint) error {
 func (r *roomRepository) ChangeRoomCreator(c *gin.Context, roomID uint, creatorID uint) error {
 	if err := database.Db.Model(&model.Room{}).
 		Where("id = ?", roomID).
-		Update("creator_id", creatorID).Error; err != nil {
+		Update("created_by", creatorID).Error; err != nil {
 		return err
 	}
 	return nil

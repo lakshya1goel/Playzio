@@ -38,11 +38,22 @@ func main() {
 	util.InitGoogleOAuth()
 
 	router := gin.Default()
+
+	authController := controller.NewAuthController()
+	gameController := controller.NewGameWSController(app.GamePool)
+	chatController := controller.NewChatWSController(app.ChatPool, usecase.NewChatWSUsecase())
+	roomController := controller.NewRoomController()
+
+        router.GET("/", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"message": "Welcome to Playzio",
+		})
+	})
 	apiRouter := router.Group("/api")
 	{
-		routes.AuthRoutes(apiRouter, controller.NewAuthController())
-		routes.WsRoutes(apiRouter, controller.NewChatWSController(app.ChatPool, usecase.NewChatWSUsecase()), controller.NewGameWSController(app.GamePool, usecase.NewGameWSUsecase()))
-		routes.RoomRoutes(apiRouter, controller.NewRoomController())
+		routes.AuthRoutes(apiRouter, authController)
+		routes.WsRoutes(apiRouter, chatController, gameController)
+		routes.RoomRoutes(apiRouter, roomController)
 	}
 
 	router.Run(":8000")
