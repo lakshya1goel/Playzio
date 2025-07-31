@@ -3,19 +3,16 @@ package controller
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/lakshya1goel/Playzio/bootstrap/util"
-	"github.com/lakshya1goel/Playzio/domain/model"
-	"github.com/lakshya1goel/Playzio/usecase"
+	"github.com/lakshya1goel/Playzio/websocket"
 )
 
 type GameWSController struct {
-	usecase usecase.GameWSUsecase
-	pool    *model.GamePool
+	pool *websocket.GamePool
 }
 
-func NewGameWSController(pool *model.GamePool, wsUsecase usecase.GameWSUsecase) *GameWSController {
+func NewGameWSController(pool *websocket.GamePool) *GameWSController {
 	return &GameWSController{
-		usecase: wsUsecase,
-		pool:    pool,
+		pool: pool,
 	}
 }
 
@@ -25,8 +22,8 @@ func (wsc *GameWSController) HandleGameWebSocket(c *gin.Context) {
 		return
 	}
 
-	client := &model.GameClient{
-		BaseClient: model.BaseClient{
+	client := &websocket.GameClient{
+		BaseClient: websocket.BaseClient{
 			Conn:     conn,
 			UserId:   userId,
 			UserName: userName,
@@ -34,5 +31,5 @@ func (wsc *GameWSController) HandleGameWebSocket(c *gin.Context) {
 		Pool: wsc.pool,
 	}
 
-	go wsc.usecase.Read(client)
+	go wsc.pool.Read(client)
 }

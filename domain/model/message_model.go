@@ -20,9 +20,6 @@ const (
 
 type GameMessage struct {
 	Type    string         `json:"type"`
-	RoomID  uint           `json:"room_id"`
-	CharSet *string        `json:"char_set"`
-	UserID  uint           `json:"user_id"`
 	Payload map[string]any `json:"payload,omitempty"`
 }
 
@@ -31,11 +28,13 @@ const (
 	Answer       = "answer"
 	Leave        = "leave"
 	Typing       = "typing"
-	Timeout      = "timeout"
 	TimerStarted = "timer_started"
 	StartGame    = "start_game"
 	NextTurn     = "next_turn"
 	GameOver     = "game_over"
 	UserJoined   = "user_joined"
 	UserLeft     = "user_left"
+	TurnEnded    = "turn_ended"
+	Ping         = "ping"
+	Pong         = "pong"
 )

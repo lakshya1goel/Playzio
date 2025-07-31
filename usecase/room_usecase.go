@@ -56,8 +56,24 @@ func (ru *roomUsecase) CreateRoom(c *gin.Context, room model.Room) (*model.Room,
 		uid := userID.(uint)
 		room.CreatedBy = &uid
 
+		username, exists := c.Get("user_name")
+		if !exists {
+			return nil, &domain.HttpError{
+				StatusCode: http.StatusUnauthorized,
+				Message:    "Username not found in context",
+			}
+		}
+		usernameStr, ok := username.(string)
+		if !ok {
+			return nil, &domain.HttpError{
+				StatusCode: http.StatusInternalServerError,
+				Message:    "Username type assertion failed",
+			}
+		}
+
 		members = append(members, model.RoomMember{
 			UserID:    &uid,
+			Username:  &usernameStr,
 			IsCreator: true,
 		})
 	} else if userType == "guest" {
@@ -125,6 +141,21 @@ func (ru *roomUsecase) JoinRoom(c *gin.Context, joinCode string) (*model.Room, *
 		}
 		uid := userID.(uint)
 
+		username, exists := c.Get("user_name")
+		if !exists {
+			return nil, &domain.HttpError{
+				StatusCode: http.StatusUnauthorized,
+				Message:    "Username not found in context",
+			}
+		}
+		usernameStr, ok := username.(string)
+		if !ok {
+			return nil, &domain.HttpError{
+				StatusCode: http.StatusInternalServerError,
+				Message:    "Username type assertion failed",
+			}
+		}
+
 		exists, err := ru.roomRepo.IsUserInRoom(c, room.ID, uid)
 		if err != nil {
 			return nil, &domain.HttpError{
@@ -140,8 +171,9 @@ func (ru *roomUsecase) JoinRoom(c *gin.Context, joinCode string) (*model.Room, *
 		}
 
 		member = model.RoomMember{
-			RoomID: room.ID,
-			UserID: &uid,
+			RoomID:  room.ID,
+			UserID:  &uid,
+			Username: &usernameStr,
 		}
 	} else if userType == "guest" {
 		guestID := c.GetString("guest_id")
