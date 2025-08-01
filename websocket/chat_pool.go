@@ -1,8 +1,11 @@
 package websocket
 
 import (
+	"fmt"
 	"sync"
+	"time"
 
+	"github.com/lakshya1goel/Playzio/bootstrap/redis"
 	"github.com/lakshya1goel/Playzio/bootstrap/util"
 	"github.com/lakshya1goel/Playzio/domain/model"
 )
@@ -26,11 +29,15 @@ func NewBasePool[T any]() *BasePool[T] {
 
 type ChatPool struct {
 	*BasePool[*ChatClient]
+	roomSubscriptions map[uint]bool
+	redis             *redis.Redis
 }
 
-func NewChatPool() *ChatPool {
+func NewChatPool(redisClient *redis.Redis) *ChatPool {
 	return &ChatPool{
-		BasePool: NewBasePool[*ChatClient](),
+		BasePool:          NewBasePool[*ChatClient](),
+		roomSubscriptions: make(map[uint]bool),
+		redis:             redisClient,
 	}
 }
 
@@ -38,26 +45,58 @@ func (p *ChatPool) Start() {
 	for {
 		select {
 		case client := <-p.Register:
-			if len(p.Rooms[client.RoomID]) >= 10 {
-				p.mu.Unlock()
-				continue
-			}
-			util.RegisterClient(&p.mu, p.Rooms, client.RoomID, client.UserId, client)
+			p.handleClientRegister(client)
 
 		case client := <-p.Unregister:
-			util.UnregisterClient(&p.mu, p.Rooms, client.RoomID, client.UserId)
+			p.handleClientUnregister(client)
 
 		case raw := <-p.Broadcast:
-			msg, ok := raw.(model.ChatMessage)
-			if !ok {
+			if !p.handleBroadcast(raw) {
 				continue
 			}
-			p.mu.RLock()
-			clients := p.Rooms[msg.RoomID]
-			for _, client := range clients {
-				go client.WriteJSON(msg)
-			}
-			p.mu.RUnlock()
 		}
 	}
+}
+
+func (p *ChatPool) handleClientRegister(c *ChatClient) {
+	util.RegisterClient(&p.mu, p.Rooms, c.RoomID, c.UserId, c)
+	if !p.roomSubscriptions[c.RoomID] {
+		if err := p.redis.SubscribeToRoom(c.RoomID, func(msg model.ChatMessage) {
+			p.Broadcast <- msg
+		}); err != nil {
+			fmt.Println("Error subscribing to room: ", err)
+		}
+		p.roomSubscriptions[c.RoomID] = true
+	}
+}
+
+func (p *ChatPool) handleClientUnregister(c *ChatClient) {
+	util.UnregisterClient(&p.mu, p.Rooms, c.RoomID, c.UserId)
+	if len(p.Rooms[c.RoomID]) == 0 {
+		if err := p.redis.UnsubscribeFromRoom(c.RoomID); err != nil {
+			fmt.Println("Error unsubscribing from room: ", err)
+		}
+		delete(p.roomSubscriptions, c.RoomID)
+	}
+}
+
+func (p *ChatPool) handleBroadcast(raw interface{}) bool {
+	msg, ok := raw.(model.ChatMessage)
+	if !ok {
+		return false
+	}
+	msg.CreatedAt = time.Now()
+	p.mu.RLock()
+	clients := p.Rooms[msg.RoomID]
+	for _, client := range clients {
+		go client.WriteJSON(msg)
+	}
+	p.mu.RUnlock()
+
+	go func() {
+		if err := p.redis.PublishToRoom(msg.RoomID, msg); err != nil {
+			fmt.Println("Error publishing message to room: ", err)
+		}
+	}()
+	return true
 }

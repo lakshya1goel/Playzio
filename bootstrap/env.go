@@ -7,11 +7,15 @@ import (
 )
 
 type Env struct {
-	DBHost string `mapstructure:"DB_HOST"`
-	DBPort string `mapstructure:"DB_PORT"`
-	DBUser string `mapstructure:"DB_USER"`
-	DBPass string `mapstructure:"DB_PASSWORD"`
-	DBName string `mapstructure:"DB_NAME"`
+	DBHost    string `mapstructure:"DB_HOST"`
+	DBPort    string `mapstructure:"DB_PORT"`
+	DBUser    string `mapstructure:"DB_USER"`
+	DBPass    string `mapstructure:"DB_PASSWORD"`
+	DBName    string `mapstructure:"DB_NAME"`
+	RedisHost string `mapstructure:"REDIS_HOST"`
+	RedisPort string `mapstructure:"REDIS_PORT"`
+	RedisPass string `mapstructure:"REDIS_PASSWORD"`
+	RedisDB   int    `mapstructure:"REDIS_DB"`
 }
 
 func NewEnv() *Env {
