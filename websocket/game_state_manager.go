@@ -33,16 +33,16 @@ func (g *gameStateManager) CreateRoomState(roomID, userId uint) *model.GameRoomS
 		RoomID:           roomID,
 		CreatedBy:        userId,
 		Players:          []uint{userId},
-		Lives:            map[uint]int{userId: 3},
-		Points:           map[uint]int{userId: 0},
-		TurnIndex:        0,
+		Lives:            map[uint]int{userId: InitialLives},
+		Points:           map[uint]int{userId: InitialPoints},
+		TurnIndex:        InitialTurnIndex,
 		CharSet:          "",
 		Started:          false,
 		Round:            0,
 		TimeLimit:        0,
 		WinnerID:         0,
 		CountdownStarted: true,
-		CountdownEndTime: time.Now().Add(2 * time.Minute),
+		CountdownEndTime: time.Now().Add(CountdownDuration),
 	}
 
 	g.roomState[roomID] = gameRoomState
@@ -72,8 +72,8 @@ func (g *gameStateManager) AddPlayer(roomID, userID uint) bool {
 
 	if _, exists := room.Lives[userID]; !exists {
 		room.Players = append(room.Players, userID)
-		room.Lives[userID] = 3
-		room.Points[userID] = 0
+		room.Lives[userID] = InitialLives
+		room.Points[userID] = InitialPoints
 		return true
 	}
 	return false
