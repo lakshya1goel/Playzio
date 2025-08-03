@@ -2,7 +2,6 @@ package websocket
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/lakshya1goel/Playzio/bootstrap/util"
 	"github.com/lakshya1goel/Playzio/domain/model"
@@ -46,7 +45,7 @@ func (p *GamePool) handleClientRegister(client *GameClient) {
 	roomState := p.gameStateManager.GetRoomState(client.RoomID)
 	if roomState == nil {
 		p.gameStateManager.CreateRoomState(client.RoomID, client.UserId)
-		p.gameTimerManager.StartCountdown(client.RoomID, 2*time.Minute)
+		p.gameTimerManager.StartCountdown(client.RoomID, CountdownDuration)
 	} else {
 		if p.gameStateManager.AddPlayer(client.RoomID, client.UserId) {
 			remainingTime := p.gameTimerManager.GetRemainingCountdownTime(client.RoomID)
@@ -101,7 +100,6 @@ func (p *GamePool) handleBroadcast(raw interface{}) bool {
 		go client.WriteJSON(msg)
 	}
 	p.mu.RUnlock()
-	
 	return true
 }
 
@@ -154,7 +152,7 @@ func (p *GamePool) Read(c *GameClient) {
 
 func (p *GamePool) JoinRoom(c *GameClient, roomID uint) {
 	c.RoomID = roomID
-	if p.RoomCount(roomID) >= 10 {
+	if p.RoomCount(roomID) >= MaxRoomCapacity {
 		fmt.Println("Room is full, cannot join:", roomID)
 		return
 	}
@@ -190,10 +188,10 @@ func (p *GamePool) handleCountdownEnd(roomID uint) {
 
 	gameRoomState.Started = true
 	gameRoomState.CharSet = util.GenerateRandomWord()
-	gameRoomState.Round = 1
-	gameRoomState.TimeLimit = 19
+	gameRoomState.Round = InitialRound
+	gameRoomState.TimeLimit = InitialTimeLimit
 	gameRoomState.CountdownStarted = false
-	gameRoomState.TurnIndex = 0
+	gameRoomState.TurnIndex = InitialTurnIndex
 
 	message := NewGameMessage().
 		SetMessageType(model.StartGame).
