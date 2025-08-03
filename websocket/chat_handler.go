@@ -33,7 +33,10 @@ func (u *chatHandler) BroadcastMessage(c *ChatClient, msg model.ChatMessage) {
 	msg.Sender = c.UserId
 	msg.RoomID = c.RoomID
 	msg.CreatedAt = time.Now()
-	c.Pool.Broadcast <- msg
+
+	if err := c.Pool.redis.PublishToRoom(msg.RoomID, msg); err != nil {
+		fmt.Println("Error publishing message to Redis: ", err)
+	}
 }
 
 func (u *chatHandler) Read(c *ChatClient) {
