@@ -79,7 +79,6 @@ func (p *ChatPool) handleClientUnregister(c *ChatClient) {
 		delete(p.roomSubscriptions, c.RoomID)
 	}
 }
-
 func (p *ChatPool) handleBroadcast(raw interface{}) bool {
 	msg, ok := raw.(model.ChatMessage)
 	if !ok {
@@ -92,11 +91,5 @@ func (p *ChatPool) handleBroadcast(raw interface{}) bool {
 		go client.WriteJSON(msg)
 	}
 	p.mu.RUnlock()
-
-	go func() {
-		if err := p.redis.PublishToRoom(msg.RoomID, msg); err != nil {
-			fmt.Println("Error publishing message to room: ", err)
-		}
-	}()
 	return true
 }
