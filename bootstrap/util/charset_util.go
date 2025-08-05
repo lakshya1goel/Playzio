@@ -41,12 +41,15 @@ func loadWords() {
 
 func IsWordValid(word string) bool {
 	loadWords()
-	_, exists := wordSet[strings.ToLower(word)]
+	lowerWord := strings.ToLower(word)
+	_, exists := wordSet[lowerWord]
 	return exists
 }
 
 func ContainsSubstring(word, substr string) bool {
-	return strings.Contains(strings.ToLower(word), strings.ToLower(substr))
+	lowerWord := strings.ToLower(word)
+	lowerSubstr := strings.ToLower(substr)
+	return strings.Contains(lowerWord, lowerSubstr)
 }
 
 func GenerateRandomWord() string {
