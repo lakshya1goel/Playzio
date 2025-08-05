@@ -76,6 +76,7 @@ func (g *gameEngine) startTurn(userID uint) {
 
 	currentTurnIndex := g.GameRoomState.TurnIndex
 	newCharSet := util.GenerateRandomWord()
+	g.GameRoomState.CharSet = newCharSet
 
 	message := NewGameMessage().
 		SetMessageType(model.NextTurn).
