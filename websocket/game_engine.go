@@ -30,8 +30,8 @@ func NewGameEngine(pool *GamePool, room *model.GameRoomState) GameEngine {
 	return &gameEngine{
 		Pool:              pool,
 		GameRoomState:     room,
-		RoundMaxTimeLimit: 20,
-		MinTimeLimit:      5,
+		RoundMaxTimeLimit: RoundMaxTimeLimit,
+		MinTimeLimit:      MinTimeLimit,
 	}
 }
 
@@ -76,6 +76,7 @@ func (g *gameEngine) startTurn(userID uint) {
 
 	currentTurnIndex := g.GameRoomState.TurnIndex
 	newCharSet := util.GenerateRandomWord()
+	g.GameRoomState.CharSet = newCharSet
 
 	message := NewGameMessage().
 		SetMessageType(model.NextTurn).
@@ -174,7 +175,7 @@ func (g *gameEngine) checkEndCondition() bool {
 	aliveCount := 0
 	var lastAlivePlayer uint
 	var highestScorePlayer uint
-	maxScore := -1
+	maxScore := MaxScoreForComparison
 
 	for uid, life := range g.GameRoomState.Lives {
 		if life > 0 {
@@ -188,7 +189,7 @@ func (g *gameEngine) checkEndCondition() bool {
 		}
 	}
 
-	if aliveCount <= 1 {
+	if aliveCount <= MinAlivePlayersForGameEnd {
 		var winnerID uint
 		if aliveCount == 1 {
 			winnerID = lastAlivePlayer

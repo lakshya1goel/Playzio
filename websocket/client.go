@@ -50,8 +50,8 @@ func (bc *BaseClient) SendPong(timestamp int64) error {
 }
 
 func (bc *BaseClient) StartPingPong() {
-	bc.PingInterval = 30 * time.Second
-	bc.PongTimeout = 10 * time.Second
+	bc.PingInterval = PingInterval
+	bc.PongTimeout = PongTimeout
 	bc.IsConnected = true
 	bc.LastPongTime = time.Now()
 	bc.PingCount = 0
