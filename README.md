@@ -2,6 +2,10 @@
 
 A real-time multiplayer word game platform built with Go, featuring WebSocket-based gameplay, chat functionality, and Google OAuth authentication.
 
+## 📱 Frontend Application
+
+The React Native mobile app for this backend is available at: [Playzio-app](https://github.com/lakshya1goel/Playzio-app)
+
 ## Features
 
 - 🎯 **Real-time Multiplayer Gameplay**: Turn-based word game with up to 10 players per room
@@ -126,25 +130,6 @@ go mod tidy
 go run cmd/main.go
 ```
 
-## API Endpoints
-
-### Authentication (`/api/auth`)
-- `GET /api/auth/` - Google Sign In
-- `POST /api/auth/callback` - Google OAuth callback
-- `GET /api/auth/google` - Begin Google OAuth authentication
-- `POST /api/auth/guest` - Guest authentication
-- `POST /api/auth/access-token` - Get access token from refresh token
-
-### Rooms (`/api/room`) - *Requires Authentication*
-- `POST /api/room/` - Create a new room
-- `POST /api/room/join` - Join a room
-- `GET /api/room/public` - Get all public rooms
-- `POST /api/room/leave` - Leave a room
-
-### WebSocket Endpoints (`/api/ws`) - *Requires Authentication*
-- `GET /api/ws/chat` - Chat WebSocket connection
-- `GET /api/ws/game` - Game WebSocket connection
-
 ## Game Rules
 
 1. **Room Creation**: Any authenticated user can create a game room
@@ -154,25 +139,6 @@ go run cmd/main.go
 5. **Lives**: Each player starts with 3 lives
 6. **Scoring**: Points are awarded for correct answers
 7. **Game End**: Game ends when only one player remains or all players are eliminated
-
-## WebSocket Events
-
-### Chat Events
-- `join-room` - Join chat room
-- `leave-room` - Leave chat room  
-- `chat-content` - Send/receive chat messages
-
-### Game Events
-- `join` - Join game
-- `leave` - Leave game
-- `start_game` - Start the game
-- `answer` - Submit an answer
-- `next_turn` - Move to next turn
-- `timer_started` - Turn timer started
-- `turn_ended` - Turn time expired
-- `game_over` - Game finished
-- `user_joined` - Player joined notification
-- `user_left` - Player left notification
 
 ## Development
 
@@ -215,6 +181,12 @@ The project follows a clean architecture pattern:
 3. Commit your changes (`git commit -m 'Add some amazing feature'`)
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
+
+## Contact
+
+**Lakshya Goel**
+- Email: lakshya1234goel@gmail.com
+- GitHub: [@lakshya1goel](https://github.com/lakshya1goel)
 
 ## Support
 
