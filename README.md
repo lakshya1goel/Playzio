@@ -6,6 +6,10 @@ A real-time multiplayer word game platform built with Go, featuring WebSocket-ba
 
 The React Native mobile app for this backend is available at: [Playzio-app](https://github.com/lakshya1goel/Playzio-app)
 
+## 🎥 Demo
+
+https://github.com/user-attachments/assets/2527d6b7-83c4-4ccc-a6ed-18e7dc898231
+
 ## Features
 
 - 🎯 **Real-time Multiplayer Gameplay**: Turn-based word game with up to 10 players per room
