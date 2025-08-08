@@ -7,6 +7,7 @@ import (
 	"github.com/lakshya1goel/Playzio/bootstrap/database"
 	"github.com/lakshya1goel/Playzio/bootstrap/util"
 	"github.com/lakshya1goel/Playzio/domain"
+	"github.com/lakshya1goel/Playzio/domain/dto"
 	"github.com/lakshya1goel/Playzio/domain/model"
 	"github.com/lakshya1goel/Playzio/repository"
 )
@@ -19,15 +20,15 @@ type RoomUsecase interface {
 }
 
 type roomUsecase struct {
-	roomRepo repository.RoomRepository
-	userRepo repository.UserRepository
+	roomRepo       repository.RoomRepository
+	userRepo       repository.UserRepository
 	roomMemberRepo repository.RoomMemberRepository
 }
 
 func NewRoomUsecase() RoomUsecase {
 	return &roomUsecase{
-		roomRepo: repository.NewRoomRepository(),
-		userRepo: repository.NewUserRepository(),
+		roomRepo:       repository.NewRoomRepository(),
+		userRepo:       repository.NewUserRepository(),
 		roomMemberRepo: repository.NewRoomMemberRepository(),
 	}
 }
@@ -42,58 +43,23 @@ func (ru *roomUsecase) CreateRoom(c *gin.Context, room model.Room) (*model.Room,
 	}
 	room.JoinCode = joinCode
 
-	userType := c.GetString("user_type")
-	var members []model.RoomMember
-
-	if userType == "google" {
-		userID, exists := c.Get("user_id")
-		if !exists {
-			return nil, &domain.HttpError{
-				StatusCode: http.StatusUnauthorized,
-				Message:    "User not authenticated",
-			}
-		}
-		uid := userID.(uint)
-		room.CreatedBy = &uid
-
-		username, exists := c.Get("user_name")
-		if !exists {
-			return nil, &domain.HttpError{
-				StatusCode: http.StatusUnauthorized,
-				Message:    "Username not found in context",
-			}
-		}
-		usernameStr, ok := username.(string)
-		if !ok {
-			return nil, &domain.HttpError{
-				StatusCode: http.StatusInternalServerError,
-				Message:    "Username type assertion failed",
-			}
-		}
-
-		members = append(members, model.RoomMember{
-			UserID:    &uid,
-			Username:  &usernameStr,
-			IsCreator: true,
-		})
-	} else if userType == "guest" {
-		guestID := c.GetString("guest_id")
-		guestName := c.GetString("guest_name")
-		room.CreatorGuestID = &guestID
-
-		members = append(members, model.RoomMember{
-			GuestID:   &guestID,
-			GuestName: &guestName,
-			IsCreator: true,
-		})
-	} else {
+	userInfo, userErr := ru.extractUserInfo(c)
+	if userErr != nil {
 		return nil, &domain.HttpError{
-			StatusCode: http.StatusUnauthorized,
-			Message:    "Invalid user type",
+			StatusCode: userErr.StatusCode,
+			Message:    userErr.Message,
 		}
 	}
 
-	room.Members = members
+	if userInfo.Type == "google" {
+		room.CreatedBy = userInfo.UserID
+	} else {
+		room.CreatorGuestID = userInfo.GuestID
+	}
+
+	member := ru.createRoomMember(userInfo, room.ID, true)
+	room.Members = []model.RoomMember{member}
+
 	createdRoom, err := ru.roomRepo.CreateRoom(c, room)
 	if err != nil {
 		return nil, &domain.HttpError{
@@ -128,82 +94,30 @@ func (ru *roomUsecase) JoinRoom(c *gin.Context, joinCode string) (*model.Room, *
 		}
 	}
 
-	userType := c.GetString("user_type")
-	var member model.RoomMember
-
-	if userType == "google" {
-		userID, exists := c.Get("user_id")
-		if !exists {
-			return nil, &domain.HttpError{
-				StatusCode: http.StatusUnauthorized,
-				Message:    "User not authenticated",
-			}
-		}
-		uid := userID.(uint)
-
-		username, exists := c.Get("user_name")
-		if !exists {
-			return nil, &domain.HttpError{
-				StatusCode: http.StatusUnauthorized,
-				Message:    "Username not found in context",
-			}
-		}
-		usernameStr, ok := username.(string)
-		if !ok {
-			return nil, &domain.HttpError{
-				StatusCode: http.StatusInternalServerError,
-				Message:    "Username type assertion failed",
-			}
-		}
-
-		exists, err := ru.roomRepo.IsUserInRoom(c, room.ID, uid)
-		if err != nil {
-			return nil, &domain.HttpError{
-				StatusCode: http.StatusInternalServerError,
-				Message:    "Failed to check room membership",
-			}
-		}
-		if exists {
-			return nil, &domain.HttpError{
-				StatusCode: http.StatusConflict,
-				Message:    "User already joined the room",
-			}
-		}
-
-		member = model.RoomMember{
-			RoomID:  room.ID,
-			UserID:  &uid,
-			Username: &usernameStr,
-		}
-	} else if userType == "guest" {
-		guestID := c.GetString("guest_id")
-		guestName := c.GetString("guest_name")
-
-		exists, err := ru.roomRepo.IsGuestInRoom(c, room.ID, guestID)
-		if err != nil {
-			return nil, &domain.HttpError{
-				StatusCode: http.StatusInternalServerError,
-				Message:    "Failed to check guest room membership",
-			}
-		}
-		if exists {
-			return nil, &domain.HttpError{
-				StatusCode: http.StatusConflict,
-				Message:    "Guest already joined the room",
-			}
-		}
-
-		member = model.RoomMember{
-			RoomID:    room.ID,
-			GuestID:   &guestID,
-			GuestName: &guestName,
-		}
-	} else {
+	userInfo, userErr := ru.extractUserInfo(c)
+	if userErr != nil {
 		return nil, &domain.HttpError{
-			StatusCode: http.StatusUnauthorized,
-			Message:    "Invalid user type",
+			StatusCode: userErr.StatusCode,
+			Message:    userErr.Message,
 		}
 	}
+
+	exists, existsErr := ru.isUserInRoom(c, userInfo, room.ID)
+	if existsErr != nil {
+		return nil, &domain.HttpError{
+			StatusCode: existsErr.StatusCode,
+			Message:    existsErr.Message,
+		}
+	}
+
+	if exists {
+		return nil, &domain.HttpError{
+			StatusCode: http.StatusConflict,
+			Message:    "User already joined the room",
+		}
+	}
+
+	member := ru.createRoomMember(userInfo, room.ID, false)
 
 	if err := ru.roomRepo.AddRoomMember(c, &member); err != nil {
 		return nil, &domain.HttpError{
@@ -243,137 +157,213 @@ func (ru *roomUsecase) GetAllPublicRooms(c *gin.Context) ([]model.Room, *domain.
 }
 
 func (ru *roomUsecase) LeaveRoom(c *gin.Context) *domain.HttpError {
-	userType := c.GetString("user_type")
+	userInfo, err := ru.extractUserInfo(c)
+	if err != nil {
+		return &domain.HttpError{
+			StatusCode: err.StatusCode,
+			Message:    err.Message,
+		}
+	}
 
-	if userType == "google" {
+	roomMember, err := ru.getRoomMemberByUserInfo(c, userInfo)
+	if err != nil {
+		return &domain.HttpError{
+			StatusCode: err.StatusCode,
+			Message:    err.Message,
+		}
+	}
+
+	if roomMember.IsCreator {
+		return ru.handleCreatorLeaving(c, userInfo, roomMember)
+	} else {
+		return ru.deleteRoomMember(c, userInfo, roomMember.RoomID)
+	}
+}
+
+func (ru *roomUsecase) extractUserInfo(c *gin.Context) (*dto.User, *domain.HttpError) {
+	userType := c.GetString("user_type")
+	userInfo := &dto.User{Type: userType}
+
+	switch userType {
+	case "google":
 		userID, exists := c.Get("user_id")
 		if !exists {
-			return &domain.HttpError{
+			return nil, &domain.HttpError{
 				StatusCode: http.StatusUnauthorized,
 				Message:    "User not authenticated",
 			}
 		}
 		uid := userID.(uint)
+		userInfo.UserID = &uid
 
-		roomMember, err := ru.roomMemberRepo.GetRoomMemberByUserID(c, uid)
-		if err != nil {
-			return &domain.HttpError{
+		username, exists := c.Get("user_name")
+		if !exists {
+			return nil, &domain.HttpError{
+				StatusCode: http.StatusUnauthorized,
+				Message:    "Username not found in context",
+			}
+		}
+		usernameStr, ok := username.(string)
+		if !ok {
+			return nil, &domain.HttpError{
 				StatusCode: http.StatusInternalServerError,
-				Message:    "Failed to retrieve room for creator user",
+				Message:    "Username type assertion failed",
 			}
 		}
+		userInfo.Username = &usernameStr
 
-		if roomMember.IsCreator {
-			resp, err := ru.roomMemberRepo.GetRoomMembersByRoomID(c, roomMember.RoomID)
-			if err != nil {
-				return &domain.HttpError{
-					StatusCode: http.StatusInternalServerError,
-					Message:    "Failed to retrieve members of the room",
-				}
-			}
-			if len(resp) == 1 {
-				err := ru.roomRepo.DeleteRoom(c, roomMember.RoomID)
-				if err != nil {
-					return &domain.HttpError{
-						StatusCode: http.StatusInternalServerError,
-						Message:    "Failed to delete room",
-					}
-				}
-			} else {
-				err = ru.roomRepo.ChangeRoomCreator(c, roomMember.RoomID, *resp[1].UserID)
-				if err != nil {
-					return &domain.HttpError{
-						StatusCode: http.StatusInternalServerError,
-						Message:    "Failed to change room creator",
-					}
-				}
-				err = ru.roomMemberRepo.UpdateRoomMemberToCreator(c, roomMember.RoomID, resp[1])
-				if err != nil {
-					return &domain.HttpError{
-						StatusCode: http.StatusInternalServerError,
-						Message:    "Failed to update room member to creator",
-					}
-				}
-			}
-			err = ru.roomMemberRepo.DeleteRoomMember(c, roomMember.RoomID, uid)
-			if err != nil {
-				return &domain.HttpError{
-					StatusCode: http.StatusInternalServerError,
-					Message:    "Failed to delete room member",
-				}
-			}
-		} else {
-			err := ru.roomMemberRepo.DeleteRoomMember(c, roomMember.RoomID, uid)
-			if err != nil {
-				return &domain.HttpError{
-					StatusCode: http.StatusInternalServerError,
-					Message:    "Failed to delete room member",
-				}
-			}
-		}
-	} else if userType == "guest" {
+	case "guest":
 		guestID := c.GetString("guest_id")
-		roomMember, err := ru.roomMemberRepo.GetRoomMemberByGuestID(c, guestID)
-		if err != nil {
-			return &domain.HttpError{
-				StatusCode: http.StatusInternalServerError,
-				Message:    "Failed to retrieve room member for guest",
-			}
-		}
+		guestName := c.GetString("guest_name")
+		userInfo.GuestID = &guestID
+		userInfo.GuestName = &guestName
 
-		if roomMember.IsCreator {
-			resp, err := ru.roomMemberRepo.GetRoomMembersByRoomID(c, roomMember.RoomID)
-			if err != nil {
-				return &domain.HttpError{
-					StatusCode: http.StatusInternalServerError,
-					Message:    "Failed to retrieve members of the room",
-				}
-			}
-			if len(resp) == 1 {
-				err := ru.roomRepo.DeleteRoom(c, roomMember.RoomID)
-				if err != nil {
-					return &domain.HttpError{
-						StatusCode: http.StatusInternalServerError,
-						Message:    "Failed to delete room",
-					}
-				}
-			} else {
-				err = ru.roomRepo.ChangeRoomGuestCreator(c, roomMember.RoomID, *resp[1].GuestID)
-				if err != nil {
-					return &domain.HttpError{
-						StatusCode: http.StatusInternalServerError,
-						Message:    "Failed to change room creator",
-					}
-				}
-				err = ru.roomMemberRepo.UpdateRoomMemberToCreator(c, roomMember.RoomID, resp[1])
-				if err != nil {
-					return &domain.HttpError{
-						StatusCode: http.StatusInternalServerError,
-						Message:    "Failed to update room member to creator",
-					}
-				}
-			}
-			err = ru.roomMemberRepo.DeleteRoomMemberByGuestID(c, roomMember.RoomID, guestID)
-			if err != nil {
-				return &domain.HttpError{
-					StatusCode: http.StatusInternalServerError,
-					Message:    "Failed to delete room member",
-				}
-			}
-		} else {
-			err := ru.roomMemberRepo.DeleteRoomMemberByGuestID(c, roomMember.RoomID, guestID)
-			if err != nil {
-				return &domain.HttpError{
-					StatusCode: http.StatusInternalServerError,
-					Message:    "Failed to delete room member",
-				}
-			}
-		}
-	} else {
-		return &domain.HttpError{
+	default:
+		return nil, &domain.HttpError{
 			StatusCode: http.StatusUnauthorized,
 			Message:    "Invalid user type",
 		}
 	}
+
+	return userInfo, nil
+}
+
+func (ru *roomUsecase) createRoomMember(userInfo *dto.User, roomID uint, isCreator bool) model.RoomMember {
+	member := model.RoomMember{
+		RoomID:    roomID,
+		IsCreator: isCreator,
+	}
+
+	if userInfo.Type == "google" {
+		member.UserID = userInfo.UserID
+		member.Username = userInfo.Username
+	} else {
+		member.GuestID = userInfo.GuestID
+		member.GuestName = userInfo.GuestName
+	}
+
+	return member
+}
+
+func (ru *roomUsecase) isUserInRoom(c *gin.Context, userInfo *dto.User, roomID uint) (bool, *domain.HttpError) {
+	var exists bool
+	var err error
+
+	if userInfo.Type == "google" {
+		exists, err = ru.roomRepo.IsUserInRoom(c, roomID, *userInfo.UserID)
+		if err != nil {
+			return false, &domain.HttpError{
+				StatusCode: http.StatusInternalServerError,
+				Message:    "Failed to check room membership",
+			}
+		}
+	} else {
+		exists, err = ru.roomRepo.IsGuestInRoom(c, roomID, *userInfo.GuestID)
+		if err != nil {
+			return false, &domain.HttpError{
+				StatusCode: http.StatusInternalServerError,
+				Message:    "Failed to check guest room membership",
+			}
+		}
+	}
+
+	return exists, nil
+}
+
+func (ru *roomUsecase) getRoomMemberByUserInfo(c *gin.Context, userInfo *dto.User) (model.RoomMember, *domain.HttpError) {
+	var member model.RoomMember
+	var err error
+
+	if userInfo.Type == "google" {
+		member, err = ru.roomMemberRepo.GetRoomMemberByUserID(c, *userInfo.UserID)
+		if err != nil {
+			return model.RoomMember{}, &domain.HttpError{
+				StatusCode: http.StatusInternalServerError,
+				Message:    "Failed to retrieve room for user",
+			}
+		}
+	} else {
+		member, err = ru.roomMemberRepo.GetRoomMemberByGuestID(c, *userInfo.GuestID)
+		if err != nil {
+			return model.RoomMember{}, &domain.HttpError{
+				StatusCode: http.StatusInternalServerError,
+				Message:    "Failed to retrieve room member for guest",
+			}
+		}
+	}
+
+	return member, nil
+}
+
+func (ru *roomUsecase) deleteRoomMember(c *gin.Context, userInfo *dto.User, roomID uint) *domain.HttpError {
+	var err error
+
+	if userInfo.Type == "google" {
+		err = ru.roomMemberRepo.DeleteRoomMember(c, roomID, *userInfo.UserID)
+	} else {
+		err = ru.roomMemberRepo.DeleteRoomMemberByGuestID(c, roomID, *userInfo.GuestID)
+	}
+
+	if err != nil {
+		return &domain.HttpError{
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to delete room member",
+		}
+	}
+
 	return nil
+}
+
+func (ru *roomUsecase) changeRoomCreator(c *gin.Context, roomID uint, newCreator model.RoomMember) *domain.HttpError {
+	var err error
+
+	if newCreator.UserID != nil {
+		err = ru.roomRepo.ChangeRoomCreator(c, roomID, *newCreator.UserID)
+	} else {
+		err = ru.roomRepo.ChangeRoomGuestCreator(c, roomID, *newCreator.GuestID)
+	}
+
+	if err != nil {
+		return &domain.HttpError{
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to change room creator",
+		}
+	}
+
+	return nil
+}
+
+func (ru *roomUsecase) handleCreatorLeaving(c *gin.Context, userInfo *dto.User, roomMember model.RoomMember) *domain.HttpError {
+	members, err := ru.roomMemberRepo.GetRoomMembersByRoomID(c, roomMember.RoomID)
+	if err != nil {
+		return &domain.HttpError{
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to retrieve members of the room",
+		}
+	}
+
+	if len(members) == 1 {
+		err := ru.roomRepo.DeleteRoom(c, roomMember.RoomID)
+		if err != nil {
+			return &domain.HttpError{
+				StatusCode: http.StatusInternalServerError,
+				Message:    "Failed to delete room",
+			}
+		}
+	} else {
+		newCreator := members[1]
+		if httpErr := ru.changeRoomCreator(c, roomMember.RoomID, newCreator); httpErr != nil {
+			return httpErr
+		}
+
+		err = ru.roomMemberRepo.UpdateRoomMemberToCreator(c, roomMember.RoomID, newCreator)
+		if err != nil {
+			return &domain.HttpError{
+				StatusCode: http.StatusInternalServerError,
+				Message:    "Failed to update room member to creator",
+			}
+		}
+	}
+
+	return ru.deleteRoomMember(c, userInfo, roomMember.RoomID)
 }
