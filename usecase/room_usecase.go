@@ -7,6 +7,7 @@ import (
 	"github.com/lakshya1goel/Playzio/bootstrap/database"
 	"github.com/lakshya1goel/Playzio/bootstrap/util"
 	"github.com/lakshya1goel/Playzio/domain"
+	"github.com/lakshya1goel/Playzio/domain/dto"
 	"github.com/lakshya1goel/Playzio/domain/model"
 	"github.com/lakshya1goel/Playzio/repository"
 )
@@ -19,15 +20,15 @@ type RoomUsecase interface {
 }
 
 type roomUsecase struct {
-	roomRepo repository.RoomRepository
-	userRepo repository.UserRepository
+	roomRepo       repository.RoomRepository
+	userRepo       repository.UserRepository
 	roomMemberRepo repository.RoomMemberRepository
 }
 
 func NewRoomUsecase() RoomUsecase {
 	return &roomUsecase{
-		roomRepo: repository.NewRoomRepository(),
-		userRepo: repository.NewUserRepository(),
+		roomRepo:       repository.NewRoomRepository(),
+		userRepo:       repository.NewUserRepository(),
 		roomMemberRepo: repository.NewRoomMemberRepository(),
 	}
 }
@@ -42,58 +43,23 @@ func (ru *roomUsecase) CreateRoom(c *gin.Context, room model.Room) (*model.Room,
 	}
 	room.JoinCode = joinCode
 
-	userType := c.GetString("user_type")
-	var members []model.RoomMember
-
-	if userType == "google" {
-		userID, exists := c.Get("user_id")
-		if !exists {
-			return nil, &domain.HttpError{
-				StatusCode: http.StatusUnauthorized,
-				Message:    "User not authenticated",
-			}
-		}
-		uid := userID.(uint)
-		room.CreatedBy = &uid
-
-		username, exists := c.Get("user_name")
-		if !exists {
-			return nil, &domain.HttpError{
-				StatusCode: http.StatusUnauthorized,
-				Message:    "Username not found in context",
-			}
-		}
-		usernameStr, ok := username.(string)
-		if !ok {
-			return nil, &domain.HttpError{
-				StatusCode: http.StatusInternalServerError,
-				Message:    "Username type assertion failed",
-			}
-		}
-
-		members = append(members, model.RoomMember{
-			UserID:    &uid,
-			Username:  &usernameStr,
-			IsCreator: true,
-		})
-	} else if userType == "guest" {
-		guestID := c.GetString("guest_id")
-		guestName := c.GetString("guest_name")
-		room.CreatorGuestID = &guestID
-
-		members = append(members, model.RoomMember{
-			GuestID:   &guestID,
-			GuestName: &guestName,
-			IsCreator: true,
-		})
-	} else {
+	userInfo, userErr := ru.ExtractUserInfo(c)
+	if userErr != nil {
 		return nil, &domain.HttpError{
-			StatusCode: http.StatusUnauthorized,
-			Message:    "Invalid user type",
+			StatusCode: userErr.StatusCode,
+			Message:    userErr.Message,
 		}
 	}
 
-	room.Members = members
+	if userInfo.Type == "google" {
+		room.CreatedBy = userInfo.UserID
+	} else {
+		room.CreatorGuestID = userInfo.GuestID
+	}
+
+	member := ru.createRoomMember(userInfo, room.ID, true)
+	room.Members = []model.RoomMember{member}
+
 	createdRoom, err := ru.roomRepo.CreateRoom(c, room)
 	if err != nil {
 		return nil, &domain.HttpError{
@@ -128,82 +94,30 @@ func (ru *roomUsecase) JoinRoom(c *gin.Context, joinCode string) (*model.Room, *
 		}
 	}
 
-	userType := c.GetString("user_type")
-	var member model.RoomMember
-
-	if userType == "google" {
-		userID, exists := c.Get("user_id")
-		if !exists {
-			return nil, &domain.HttpError{
-				StatusCode: http.StatusUnauthorized,
-				Message:    "User not authenticated",
-			}
-		}
-		uid := userID.(uint)
-
-		username, exists := c.Get("user_name")
-		if !exists {
-			return nil, &domain.HttpError{
-				StatusCode: http.StatusUnauthorized,
-				Message:    "Username not found in context",
-			}
-		}
-		usernameStr, ok := username.(string)
-		if !ok {
-			return nil, &domain.HttpError{
-				StatusCode: http.StatusInternalServerError,
-				Message:    "Username type assertion failed",
-			}
-		}
-
-		exists, err := ru.roomRepo.IsUserInRoom(c, room.ID, uid)
-		if err != nil {
-			return nil, &domain.HttpError{
-				StatusCode: http.StatusInternalServerError,
-				Message:    "Failed to check room membership",
-			}
-		}
-		if exists {
-			return nil, &domain.HttpError{
-				StatusCode: http.StatusConflict,
-				Message:    "User already joined the room",
-			}
-		}
-
-		member = model.RoomMember{
-			RoomID:  room.ID,
-			UserID:  &uid,
-			Username: &usernameStr,
-		}
-	} else if userType == "guest" {
-		guestID := c.GetString("guest_id")
-		guestName := c.GetString("guest_name")
-
-		exists, err := ru.roomRepo.IsGuestInRoom(c, room.ID, guestID)
-		if err != nil {
-			return nil, &domain.HttpError{
-				StatusCode: http.StatusInternalServerError,
-				Message:    "Failed to check guest room membership",
-			}
-		}
-		if exists {
-			return nil, &domain.HttpError{
-				StatusCode: http.StatusConflict,
-				Message:    "Guest already joined the room",
-			}
-		}
-
-		member = model.RoomMember{
-			RoomID:    room.ID,
-			GuestID:   &guestID,
-			GuestName: &guestName,
-		}
-	} else {
+	userInfo, userErr := ru.ExtractUserInfo(c)
+	if userErr != nil {
 		return nil, &domain.HttpError{
-			StatusCode: http.StatusUnauthorized,
-			Message:    "Invalid user type",
+			StatusCode: userErr.StatusCode,
+			Message:    userErr.Message,
 		}
 	}
+
+	exists, existsErr := ru.isUserInRoom(c, userInfo, room.ID)
+	if existsErr != nil {
+		return nil, &domain.HttpError{
+			StatusCode: existsErr.StatusCode,
+			Message:    existsErr.Message,
+		}
+	}
+
+	if exists {
+		return nil, &domain.HttpError{
+			StatusCode: http.StatusConflict,
+			Message:    "User already joined the room",
+		}
+	}
+
+	member := ru.createRoomMember(userInfo, room.ID, false)
 
 	if err := ru.roomRepo.AddRoomMember(c, &member); err != nil {
 		return nil, &domain.HttpError{
@@ -376,4 +290,94 @@ func (ru *roomUsecase) LeaveRoom(c *gin.Context) *domain.HttpError {
 		}
 	}
 	return nil
+}
+
+func (ru *roomUsecase) ExtractUserInfo(c *gin.Context) (*dto.User, *domain.HttpError) {
+	userType := c.GetString("user_type")
+	userInfo := &dto.User{Type: userType}
+
+	switch userType {
+	case "google":
+		userID, exists := c.Get("user_id")
+		if !exists {
+			return nil, &domain.HttpError{
+				StatusCode: http.StatusUnauthorized,
+				Message:    "User not authenticated",
+			}
+		}
+		uid := userID.(uint)
+		userInfo.UserID = &uid
+
+		username, exists := c.Get("user_name")
+		if !exists {
+			return nil, &domain.HttpError{
+				StatusCode: http.StatusUnauthorized,
+				Message:    "Username not found in context",
+			}
+		}
+		usernameStr, ok := username.(string)
+		if !ok {
+			return nil, &domain.HttpError{
+				StatusCode: http.StatusInternalServerError,
+				Message:    "Username type assertion failed",
+			}
+		}
+		userInfo.Username = &usernameStr
+
+	case "guest":
+		guestID := c.GetString("guest_id")
+		guestName := c.GetString("guest_name")
+		userInfo.GuestID = &guestID
+		userInfo.GuestName = &guestName
+
+	default:
+		return nil, &domain.HttpError{
+			StatusCode: http.StatusUnauthorized,
+			Message:    "Invalid user type",
+		}
+	}
+
+	return userInfo, nil
+}
+
+func (ru *roomUsecase) createRoomMember(userInfo *dto.User, roomID uint, isCreator bool) model.RoomMember {
+	member := model.RoomMember{
+		RoomID:    roomID,
+		IsCreator: isCreator,
+	}
+
+	if userInfo.Type == "google" {
+		member.UserID = userInfo.UserID
+		member.Username = userInfo.Username
+	} else {
+		member.GuestID = userInfo.GuestID
+		member.GuestName = userInfo.GuestName
+	}
+
+	return member
+}
+
+func (ru *roomUsecase) isUserInRoom(c *gin.Context, userInfo *dto.User, roomID uint) (bool, *domain.HttpError) {
+	var exists bool
+	var err error
+
+	if userInfo.Type == "google" {
+		exists, err = ru.roomRepo.IsUserInRoom(c, roomID, *userInfo.UserID)
+		if err != nil {
+			return false, &domain.HttpError{
+				StatusCode: http.StatusInternalServerError,
+				Message:    "Failed to check room membership",
+			}
+		}
+	} else {
+		exists, err = ru.roomRepo.IsGuestInRoom(c, roomID, *userInfo.GuestID)
+		if err != nil {
+			return false, &domain.HttpError{
+				StatusCode: http.StatusInternalServerError,
+				Message:    "Failed to check guest room membership",
+			}
+		}
+	}
+
+	return exists, nil
 }

@@ -28,3 +28,11 @@ type AccessTokenResponse struct {
 	AccessToken     string `json:"access_token"`
 	AccessTokenExp  int64  `json:"access_token_exp"`
 }
+
+type User struct {
+	Type      string
+	UserID    *uint
+	Username  *string
+	GuestID   *string
+	GuestName *string
+}
